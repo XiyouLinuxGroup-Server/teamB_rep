@@ -10,6 +10,7 @@
 #include<string>
 using namespace std;
 int main(void){
+    cout << "hello everyone ,I'm liushengxi" << endl ;
 	return 0 ;
 }
 
