@@ -33,16 +33,16 @@
 #include<signal.h>
 #include<assert.h>
 #include<fstream>
-
-typedef struct information{ //消息信息 
+#define    MAXSIZE  512 
+struct TT{ //消息信息 
+	int conn_fd ;
 	int flag ;  // flag== 1 ,表示需要传文件 , 
 	//flag == 2 正式开始传输
-	unsigned threadCount  = 1 ; //线程数目
+	unsigned threadCount ; //线程数目
 	unsigned BiteCount ; //每次发多大的包 
-	std::string filename ; //要请求的文件名 
-	std::fstream start ;
-	std::string str ; //读取文件数据
-}TT;
+	char filename[MAXSIZE] ; //要请求的文件名 
+	char str[MAXSIZE] ; //读取文件数据
+};
 
 class Myclient {   
 	public:

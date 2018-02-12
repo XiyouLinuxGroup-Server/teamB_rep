@@ -1,15 +1,14 @@
 
 #include"ServerMyhead.h"
 using namespace std ;
-int Myclass::setnonblocking( int fd )
+int Myserver::setnonblocking( int fd )
 {
     int old_option = fcntl( fd, F_GETFL );
     int new_option = old_option | O_NONBLOCK;
     fcntl( fd, F_SETFL, new_option );
     return old_option;
 }
-
-void Myclass::addfd( int epollfd, int fd, bool oneshot  )
+void Myserver::addfd( int epollfd, int fd, bool oneshot  )
 {
     ev.data.fd = fd;
     ev.events = EPOLLIN | EPOLLET;
@@ -20,7 +19,7 @@ void Myclass::addfd( int epollfd, int fd, bool oneshot  )
     epoll_ctl( epollfd, EPOLL_CTL_ADD, fd, &ev );
     setnonblocking( fd );
 }
-Myclass::Myclass(){
+Myserver::Myserver(){
     bzero( &address, sizeof( address ) );
     address.sin_family = AF_INET ;
     address.sin_port = htons(SERVER_PORT);
@@ -65,7 +64,8 @@ Myclass::Myclass(){
             else if ( events[i].events & EPOLLIN )
             {
                 pthread_t thread ;
-                pthread_create( &thread, NULL, Myclass::fun , (void *)&events[i].data.fd);
+                if(pthread_create( &thread, NULL,fun ,(void *)&events[i].data.fd) < 0 )
+                    printf("pthread_create is failed !! \n");
                 pthread_detach(thread); //回收资源 
             }
             else
@@ -75,31 +75,34 @@ Myclass::Myclass(){
         }
     }
 }
-Myclass::~Myclass(){
+Myserver::~Myserver(){  //析构函数  
     close(listenfd) ;
 }
-void  *Myclass::fun(void  *arg) //静态函数
+void  *fun(void  *arg) 
 {
-    printf("liushengxi \n");
-
+    printf("liushengxi \n") ;
     TT server_msg ;
-    int conn_fd = *(int *)arg ;
-    memset(&server_msg,0,sizeof(TT));
+    const int conn_fd = *(int *)arg ; 
+    memset(&server_msg,0,sizeof(TT)) ;
     int t = recv(conn_fd,&server_msg,sizeof(TT),0) ;   ///////////接受信息!!!!!!!!!!!!!!!
-   /*  if(t == 0)   //处理异常
+   /*  if(t == 0)  //处理异常
         warning_logout(server_msg ,conn_fd); */
 
-    //printf("****************************flag  ==  %d\n",server_msg.flag);
+    printf("****************************flag  ==  %d\n",server_msg.flag);
     switch(server_msg.flag)
     {
-        case 0: /* sure(server_msg,conn_fd); */   break;      
-        case 1: send_file(server_msg,conn_fd);  cout << 999 << endl;   break ;  
+        case 0: /* sure(server_msg); */   break ;      
+        case 1:  cout << "999" << endl;  send_file(server_msg,conn_fd);    break ;  
         default: break ;
     }
+    //pthread_exit(NULL);  //线程退出  
 }
-int  send_file(TT server_msg ,int conn_fd ){ //向客户端发文件 ，大小从 start 开始读取多少字节即可
-    fstream input("test.data");
-    input  >>  server_msg.str ; 
-    server_msg.flag = 888 ;
+int  send_file(TT server_msg  ,const int &conn_fd ){ //向客户端发文件 ，大小从 start 开始读取多少字节即可
+    // fstream input("test.data");
+    // input  >>  server_msg.str ; 
+    printf("---------------------------------------------------\n");
+    strcpy(server_msg.str,"XiyouLinux\n"); 
+    printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+    server_msg.flag = 666 ;
     send(conn_fd,&server_msg,sizeof(TT),0);
 }

@@ -41,7 +41,7 @@
 #define    MAX_EVENTS_NUMBER   1024 
 #define    LISTENQ      1024 
 
-struct TT{ //消息信息 
+typedef struct information{ //消息信息 
 	int flag ;  // flag== 1 ,表示需要传文件 , 
 	//flag == 2 正式开始传输
 	unsigned threadCount  = 1 ; //线程数目
@@ -49,19 +49,6 @@ struct TT{ //消息信息
 	std::string filename ; //要请求的文件名 
 	std::fstream start ;
 	std::string str ; //读取文件数据
-};
+}TT;
 
-int send_file(TT server_msg ,int conn_fd) ; 
-class Myclass{  //初始化服务器
-    int listenfd ;
-    struct sockaddr_in address ;
-	struct epoll_event ev, events[MAX_EVENTS_NUMBER] ;
-	static void  *fun(void *arg) ;  //处理传文件的逻辑
-    friend int send_file(TT server_msg ,int conn_fd) ; 
-public:
-	Myclass();  // 构造函数
-	~Myclass(); //析构函数
-	int setnonblocking( int fd );
-	void addfd( int epollfd, int fd, bool oneshot ) ;
-};
 #endif
