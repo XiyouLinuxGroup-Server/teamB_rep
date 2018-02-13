@@ -40,15 +40,29 @@
 
 #define    MAX_EVENTS_NUMBER   1024 
 #define    LISTENQ      1024 
+#define    MAXSIZE  512 
 
-typedef struct information{ //消息信息 
+struct TT{ //消息信息 
+	int conn_fd ;
 	int flag ;  // flag== 1 ,表示需要传文件 , 
 	//flag == 2 正式开始传输
-	unsigned threadCount  = 1 ; //线程数目
+	unsigned threadCount ; //线程数目
 	unsigned BiteCount ; //每次发多大的包 
-	std::string filename ; //要请求的文件名 
-	std::fstream start ;
-	std::string str ; //读取文件数据
-}TT;
-
+	char filename[MAXSIZE] ; //要请求的文件名 
+	char str[MAXSIZE] ; //读取文件数据
+};
+class Myserver{  
+public:
+    struct sockaddr_in address ;
+	struct epoll_event ev, events[MAX_EVENTS_NUMBER] ;
+    int listenfd ;
+public:
+	Myserver() ;  // 构造函数，初始化服务器
+	~Myserver(); //析构函数，关闭 listenfd 
+private:
+	int setnonblocking( int fd );
+	void addfd( int epollfd, int fd, bool oneshot ) ;
+};
+void  *fun(void  *arg) ; //线程函数
+int send_file(TT server_msg ,const int &conn_fd); 
 #endif
