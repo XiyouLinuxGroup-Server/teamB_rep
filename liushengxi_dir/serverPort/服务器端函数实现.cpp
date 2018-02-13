@@ -121,6 +121,7 @@ int sure(TT server_msg,int conn_fd){
                 strcpy(server_msg.str,"开 始 下 载 ------------\n"); 
                 server_msg.flag = 666 ;
                 send(conn_fd,&server_msg,sizeof(TT),0);
+                return 0;
         }
     }
     // 出循环代表不存在

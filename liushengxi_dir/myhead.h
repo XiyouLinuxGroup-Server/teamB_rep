@@ -36,6 +36,7 @@
 #include<assert.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include<sys/time.h>
 
 
 #define SERVER_IP  "127.0.0.1" 
@@ -43,17 +44,19 @@
 
 #define    MAX_EVENTS_NUMBER   1024 
 #define    LISTENQ      1024 
-#define    MAXSIZE  512 
+#define    MAXSIZE  52
+#define  MAXSIZESTR  1024
 
 struct TT{ //消息信息 
-	int conn_fd ;
+	int connfd ;
 	int flag ;  // flag== 0 ,表示需要传文件 , 
 	//flag == 1 正式开始传输
 	unsigned threadCount ; //线程数目
 	unsigned BiteCount ; //每次发多大的包 
 	char filename[MAXSIZE] ; //要请求的文件名 
-	char str[MAXSIZE] ; //读取文件数据
+	char str[MAXSIZESTR] ; //读取文件数据
 };
+
 class Myserver{  
 public:
     struct sockaddr_in address ;
@@ -73,7 +76,7 @@ int send_file(TT server_msg ,const int &conn_fd);
 
 
 ////////////////////////////////////////客户端头文件//////////////////////////////////////////////
-int ss = 0  ; //相当于条件变量
+
 
 class Myclient {   
 	public:
@@ -85,5 +88,58 @@ class Myclient {
 	static void *my_recv(void* args) ;
 };
 void *realdownloadFile(void *arg) ;
+
+
+
+class cond  //所需要用的条件变量
+{
+public:
+    cond()
+    {
+        if( pthread_mutex_init( &m_mutex, NULL ) != 0 )
+        {
+            throw std::exception();
+        }
+        if ( pthread_cond_init( &m_cond, NULL ) != 0 )
+        {
+            pthread_mutex_destroy( &m_mutex );
+            throw std::exception();
+        }
+    }
+    ~cond()
+    {
+        pthread_mutex_destroy( &m_mutex );
+        pthread_cond_destroy( &m_cond );
+    }
+    bool timewait()
+    {
+		
+        int ret = 0;
+		struct timeval now ;
+		struct timespec outtime ;
+        pthread_mutex_lock( &m_mutex );
+        // ret = pthread_cond_wait( &m_cond, &m_mutex );
+		gettimeofday(&now, NULL);
+		outtime.tv_sec = now.tv_sec + 1 ;
+		//outtime.tv_nsec = now.tv_usec * 1000;
+		ret = pthread_cond_timedwait(&m_cond, &m_mutex, &outtime) ;
+        pthread_mutex_unlock( &m_mutex );    
+
+        if(ret == ETIMEDOUT )
+            return false ;
+        else  {      
+            return true   ;
+        }
+    }
+    bool signal()
+    {
+        return pthread_cond_signal( &m_cond ) == 0;
+    }
+
+private:
+    pthread_mutex_t m_mutex;
+    pthread_cond_t m_cond;
+};
+static cond condTag ;
 
 #endif

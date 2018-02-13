@@ -30,16 +30,17 @@ int Myclient::downloadFile(){
     cin >> client_msg.filename ;
     cout << "请 输  入 线 程 下 载 数 量  "  ;
     cin >> client_msg.threadCount  ;
-    client_msg.flag = 0 ;
+    client_msg.flag = 0  ;
     send(conn_fd,&client_msg,sizeof(TT),0);
-    while(1){
-        sleep(3);
-        if( ss == 1 )
-            break ;
-    }
+
+    if(condTag.timewait() == false  ) //等待条件变量的变化
+        return 0;
+
     pthread_t tids[client_msg.threadCount];  //线程id  
     for( int i = 0; i < client_msg.threadCount ; ++i )  
     {  
+        printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+        printf("conn_fd == %d \n",conn_fd);
         client_msg.threadCount = i ;//只需要标识在哪一段即可
         client_msg.connfd = conn_fd ;
         int ret = pthread_create( &tids[i], NULL, realdownloadFile, (void *)&client_msg); //开线程
@@ -51,15 +52,19 @@ int Myclient::downloadFile(){
     pthread_exit( NULL ); //等待各个线程退出后，进程才结束，否则进程强制结束，线程处于未终止的状态  
 }
 
-
-
 void *realdownloadFile(void *arg){  //线程下载文件
+    printf("------------------------------------------------\n");
     TT client_msg = *(TT *)arg ; 
     client_msg.flag = 1 ;
-    send(client_msg.connfd,&client_msg,sizeof(TT),0) ;
+printf("connfd == %d \n",client_msg.connfd);
+printf("flag == %d \n",client_msg.flag);
+printf("threadCount  == %d \n",client_msg.threadCount );
+printf("BiteCount == %d \n",client_msg.BiteCount);
+printf("filename == %s \n",client_msg.filename);
+printf("str == %d \n",client_msg.str);
+
+    printf("send return number is %d \n",send(client_msg.connfd,&client_msg,sizeof(TT),0) );
 }
-
-
 
 void *Myclient::my_recv(void* args)  //静态成员具有类的数据成员 conn_fd 
 {
@@ -85,7 +90,7 @@ void *Myclient::my_recv(void* args)  //静态成员具有类的数据成员 conn
         case  666 :
             //私聊消息
             cout << "good job ! "<< massage.str  << endl ;
-            ss = 1 ;
+            condTag.signal() ;
             break;
         // case :
         //     break ;
