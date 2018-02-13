@@ -4,7 +4,7 @@
 	> Mail: 
 	> Created Time: 2018年02月03日 星期六 17时42分16秒
  ************************************************************************/
-#include"ClientMyhead.h"
+#include"../myhead.h"
 using namespace std ;
 int main(int argc ,char **argv){
     if( argc != 3  )
@@ -36,7 +36,7 @@ int main(int argc ,char **argv){
             case 0: /*  my.uploadDir(); */  break ;
             case 1: /*  my.uploadFile();   */ break ;
             case 2:  /* my.downloadDir();    */    break ;
-			case 3:  my.downloadFile();  break ;
+			case 3:   my.downloadFile();  sleep(3) ;break ;
 			case 4:  /*  my.downloadFileFromURL();  */ break;
 			case 5:     break;
             default :printf("\n\n\t\t\t\t\t\t\t输入有错～～～,请检查后重新输入!!!\n");sleep(1);break;

@@ -1,5 +1,5 @@
 
-#include"ServerMyhead.h"
+#include"../myhead.h"
 using namespace std ;
 int Myserver::setnonblocking( int fd )
 {
@@ -91,11 +91,11 @@ void  *fun(void  *arg)
     printf("****************************flag  ==  %d\n",server_msg.flag);
     switch(server_msg.flag)
     {
-        case 0: /* sure(server_msg); */   break ;      
+        case 0: sure(server_msg,conn_fd);   break ;      
         case 1:  cout << "999" << endl;  send_file(server_msg,conn_fd);    break ;  
         default: break ;
     }
-    //pthread_exit(NULL);  //线程退出  
+    pthread_exit(NULL);  //线程退出  
 }
 int  send_file(TT server_msg  ,const int &conn_fd ){ //向客户端发文件 ，大小从 start 开始读取多少字节即可
     // fstream input("test.data");
@@ -104,5 +104,28 @@ int  send_file(TT server_msg  ,const int &conn_fd ){ //向客户端发文件 ，
     strcpy(server_msg.str,"XiyouLinux\n"); 
     printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
     server_msg.flag = 666 ;
+    send(conn_fd,&server_msg,sizeof(TT),0);
+}
+int sure(TT server_msg,int conn_fd){
+    //1.判断文件是否存在？
+    //2.调用send_file 函数进行传输
+    char path[MAXSIZE] ="./file" ;
+    DIR *dir ;
+    struct dirent *ptr;
+    if(   (dir=opendir(path))  == NULL  )
+    {
+        perror("opendir");
+    }
+    while( ( ptr = readdir(dir) )  != NULL ){
+        if(strcmp(ptr->d_name,server_msg.filename) == 0 ) {  //说明存在该文件,等待线程申请下载 
+                strcpy(server_msg.str,"开 始 下 载 ------------\n"); 
+                server_msg.flag = 666 ;
+                send(conn_fd,&server_msg,sizeof(TT),0);
+        }
+    }
+    // 出循环代表不存在
+    closedir(dir);
+    strcpy(server_msg.str,"该文件在服务器上不存在，请核实后重新下载\n"); 
+    server_msg.flag = 999 ;
     send(conn_fd,&server_msg,sizeof(TT),0);
 }

@@ -13,7 +13,9 @@
 2.断点续传
 3.上传和下载的目录 
 4. 直接 url 下载 */
+
 #include<iostream>
+#include<fstream>
 #include<vector>
 #include<string>
 #include <libgen.h>
@@ -32,17 +34,46 @@
 #include<pthread.h>
 #include<signal.h>
 #include<assert.h>
-#include<fstream>
+#include <sys/types.h>
+#include <dirent.h>
+
+
+#define SERVER_IP  "127.0.0.1" 
+#define SERVER_PORT  5201  
+
+#define    MAX_EVENTS_NUMBER   1024 
+#define    LISTENQ      1024 
 #define    MAXSIZE  512 
+
 struct TT{ //消息信息 
 	int conn_fd ;
-	int flag ;  // flag== 1 ,表示需要传文件 , 
-	//flag == 2 正式开始传输
+	int flag ;  // flag== 0 ,表示需要传文件 , 
+	//flag == 1 正式开始传输
 	unsigned threadCount ; //线程数目
 	unsigned BiteCount ; //每次发多大的包 
 	char filename[MAXSIZE] ; //要请求的文件名 
 	char str[MAXSIZE] ; //读取文件数据
 };
+class Myserver{  
+public:
+    struct sockaddr_in address ;
+	struct epoll_event ev, events[MAX_EVENTS_NUMBER] ;
+    int listenfd ;
+public:
+	Myserver() ;  // 构造函数，初始化服务器
+	~Myserver(); //析构函数，关闭 listenfd 
+private:
+	int setnonblocking( int fd );
+	void addfd( int epollfd, int fd, bool oneshot ) ;
+};
+void  *fun(void  *arg) ; //线程函数
+int sure(TT server_msg,int conn_fd);
+int send_file(TT server_msg ,const int &conn_fd); 
+
+
+
+////////////////////////////////////////客户端头文件//////////////////////////////////////////////
+int ss = 0  ; //相当于条件变量
 
 class Myclient {   
 	public:
@@ -53,6 +84,6 @@ class Myclient {
 	int downloadFile();
 	static void *my_recv(void* args) ;
 };
-
+void *realdownloadFile(void *arg) ;
 
 #endif
