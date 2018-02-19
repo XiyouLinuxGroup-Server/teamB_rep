@@ -20,6 +20,7 @@ Myclient::Myclient(const char *ip ,const int port ){
         printf( "connection failed\n" );
         close( conn_fd );
     }
+    CONNFD = conn_fd ;
 }
 Myclient::~Myclient(){
 	close(conn_fd);
@@ -28,45 +29,42 @@ int Myclient::downloadFile(){
     TT client_msg ;
     cout << "请 输  入 你 想 要 下 载 的 文 件 名   "  ;
     cin >> client_msg.filename ;
-    cout << "请 输  入 线 程 下 载 数 量  "  ;
+    tag:cout << "请 输  入 线 程 下 载 数 量  "  ;
     cin >> client_msg.threadCount  ;
-    client_msg.flag = 0  ;
+    if(client_msg.threadCount ==  0)
+        goto tag ;
+
+    condTag.set();
+    client_msg.flag = 0 ;
     send(conn_fd,&client_msg,sizeof(TT),0);
 
-    if(condTag.timewait() == false  ) //等待条件变量的变化
+    if(condTag.timewait() == false  ){  //超时
+        condTag.free_cond();
         return 0;
-
+    }
+    condTag.free_cond();
     pthread_t tids[client_msg.threadCount];  //线程id  
     for( int i = 0; i < client_msg.threadCount ; ++i )  
     {  
-        printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
         printf("conn_fd == %d \n",conn_fd);
-        client_msg.threadCount = i ;//只需要标识在哪一段即可
-        client_msg.connfd = conn_fd ;
+        client_msg.temp = i  ;//只需要标识在哪一段即可
         int ret = pthread_create( &tids[i], NULL, realdownloadFile, (void *)&client_msg); //开线程
         if( ret != 0 ) //创建线程成功返回0  
         {  
            cout << "pthread_create error:error_code=" << ret << endl;  
         }  
     }  
-    pthread_exit( NULL ); //等待各个线程退出后，进程才结束，否则进程强制结束，线程处于未终止的状态  
+
 }
 
-void *realdownloadFile(void *arg){  //线程下载文件
+void *realdownloadFile(void *arg){   //线程下载文件
     printf("------------------------------------------------\n");
     TT client_msg = *(TT *)arg ; 
     client_msg.flag = 1 ;
-printf("connfd == %d \n",client_msg.connfd);
-printf("flag == %d \n",client_msg.flag);
-printf("threadCount  == %d \n",client_msg.threadCount );
-printf("BiteCount == %d \n",client_msg.BiteCount);
-printf("filename == %s \n",client_msg.filename);
-printf("str == %d \n",client_msg.str);
-
-    printf("send return number is %d \n",send(client_msg.connfd,&client_msg,sizeof(TT),0) );
+    printf("send return number is %d \n",send(CONNFD,&client_msg,sizeof(TT),0) );
 }
 
-void *Myclient::my_recv(void* args)  //静态成员具有类的数据成员 conn_fd 
+void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd 
 {
     //只用来接收信息的子线程
     int I_conn_fd = *(int *)args ;
@@ -92,9 +90,22 @@ void *Myclient::my_recv(void* args)  //静态成员具有类的数据成员 conn
             cout << "good job ! "<< massage.str  << endl ;
             condTag.signal() ;
             break;
-        // case :
-        //     break ;
+        case 1:
+        //接受文件 
+            keep_file(massage);
+            break ;
         }
     }
+}
+int keep_file(TT client_msg)
+{
+    char file_name[100];
+    ofstream outfile ;
+    sprintf(file_name,"刘生玺%d",client_msg.temp ); // 0  1 2 3 
+    outfile.open(file_name, ios::out);  //只写 
+    if(!outfile.is_open ())
+        cout << "Open file failure" << endl;
+    outfile.write(client_msg.str,client_msg.BiteCount);
+    outfile.close();
 }
 

@@ -17,7 +17,7 @@ int main(int argc ,char **argv){
 
 	Myclient my(ip,port) ; //连接我的服务器 
     pthread_t thid;
-    pthread_create(&thid,NULL, Myclient::my_recv,(void *)&my.conn_fd) ;  //my_recv 只需要套接字
+    pthread_create(&thid,NULL, my_recv,(void *)&my.conn_fd) ;  //my_recv 只需要套接字
     int choice ;
     do
     {
@@ -38,10 +38,10 @@ int main(int argc ,char **argv){
             case 2:  /* my.downloadDir();    */    break ;
 			case 3:   my.downloadFile();  sleep(3) ;break ;
 			case 4:  /*  my.downloadFileFromURL();  */ break;
-			case 5:     break;
+			case 5:    break;
             default :printf("\n\n\t\t\t\t\t\t\t输入有错～～～,请检查后重新输入!!!\n");sleep(1);break;
         }
-    }while(choice !=  5 );     //取消
+    }while(choice !=   5 );     //取消
 	return 0 ;
 }
 

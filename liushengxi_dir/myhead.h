@@ -48,13 +48,27 @@
 #define  MAXSIZESTR  1024
 
 struct TT{ //消息信息 
-	int connfd ;
 	int flag ;  // flag== 0 ,表示需要传文件 , 
 	//flag == 1 正式开始传输
-	unsigned threadCount ; //线程数目
+	int temp ; // 1 2 3 4 
+	unsigned threadCount ; //线程数目 4
 	unsigned BiteCount ; //每次发多大的包 
 	char filename[MAXSIZE] ; //要请求的文件名 
 	char str[MAXSIZESTR] ; //读取文件数据
+};
+
+class  file{
+public:
+	file(TT,const int &);
+	~file();
+	int getSum() ;
+	int real_send_file(TT);
+private:
+	std::ifstream infile ;
+	int file_fd ;
+	int section_number ; // 每一段的字节大小
+	int sum_len ; //文件的总大小
+	int count ; //把文件指针移动到哪里
 };
 
 class Myserver{  
@@ -85,16 +99,19 @@ class Myclient {
 	Myclient(const char *ip ,const int port );  // 构造函数
 	~Myclient(); //析构函数
 	int downloadFile();
-	static void *my_recv(void* args) ;
 };
+void *my_recv(void* args) ;
 void *realdownloadFile(void *arg) ;
+static int CONNFD ;
+int keep_file(TT client_msg) ;
 
 
 
 class cond  //所需要用的条件变量
 {
 public:
-    cond()
+    cond() = default ;
+	int set()
     {
         if( pthread_mutex_init( &m_mutex, NULL ) != 0 )
         {
@@ -106,7 +123,7 @@ public:
             throw std::exception();
         }
     }
-    ~cond()
+    int free_cond()
     {
         pthread_mutex_destroy( &m_mutex );
         pthread_cond_destroy( &m_cond );

@@ -8,7 +8,7 @@ int Myserver::setnonblocking( int fd )
     fcntl( fd, F_SETFL, new_option );
     return old_option;
 }
-void Myserver::addfd( int epollfd, int fd, bool oneshot  )
+void Myserver::addfd( int epollfd, int fd, bool oneshot =false )
 {
     ev.data.fd = fd;
     ev.events = EPOLLIN | EPOLLET;
@@ -59,7 +59,7 @@ Myserver::Myserver(){
                 socklen_t client_addrlength = sizeof( client_address );
                 int connfd = accept( listenfd, ( struct sockaddr* )&client_address, &client_addrlength );
                 printf("\t\t accept a connection from %s\n",inet_ntoa(client_address.sin_addr));
-                addfd( epollfd, connfd, true );
+                addfd( epollfd, connfd, false);
             }
             else if ( events[i].events & EPOLLIN )
             {
@@ -78,9 +78,45 @@ Myserver::Myserver(){
 Myserver::~Myserver(){  //析构函数  
     close(listenfd) ;
 }
+
+file::file(TT  server_msg ,const int &fd){
+    file_fd = fd ; 
+    char file_name[MAXSIZE]; 
+    strcpy(file_name,server_msg.filename); //filename = test.data  
+    sprintf(file_name,"./file/%s",server_msg.filename);
+    infile.open(file_name, ios::in);  //只读 
+    if(!infile.is_open ())
+        cout << "Open file failure" << endl;
+    infile.seekg(0, ios::end);
+    sum_len = infile.tellg(); 
+    count = server_msg.temp ; //第几个线程 0 1 2 3 
+    section_number = sum_len /server_msg.threadCount ; //注意会有余数的问题
+    infile.seekg(0, ios::beg);
+    infile.seekg(section_number*count,ios::beg);
+}
+file::~file(){
+    infile.close();
+}
+int file::real_send_file(TT server_msg) {  //正式发送文件
+    int  local = 0 ,temp_len = 0  ;
+    char read_buf[MAXSIZE];
+    while(local != section_number ) //服务器不需要知道文件有多大，发完就完了啊
+    {
+        memset(read_buf,0,sizeof(read_buf));
+        infile.read(read_buf,128);
+        temp_len = infile.gcount() ;
+        memcpy(server_msg.str,read_buf,temp_len);    //把文件内容拷贝到server_msg.str
+        local  = local + temp_len ;
+        server_msg.BiteCount = temp_len ;
+        send(file_fd,&server_msg,sizeof(TT),0) ;
+        //printf("**********************\n");
+        usleep(15000);
+        //usleep(10000); //error
+    }
+}
+
 void  *fun(void  *arg) 
 {
-    printf("liushengxi \n") ;
     TT server_msg ;
     const int conn_fd = *(int *)arg ; 
     memset(&server_msg,0,sizeof(TT)) ;
@@ -92,18 +128,18 @@ void  *fun(void  *arg)
     switch(server_msg.flag)
     {
         case 0: sure(server_msg,conn_fd);   break ;      
-        case 1:  cout << "999" << endl;  send_file(server_msg,conn_fd);    break ;  
+        case 1: send_file(server_msg,conn_fd);    break ;  
+        case 110: cout << "666" << endl ;break ;
         default: break ;
     }
     pthread_exit(NULL);  //线程退出  
 }
 int  send_file(TT server_msg  ,const int &conn_fd ){ //向客户端发文件 ，大小从 start 开始读取多少字节即可
-    // fstream input("test.data");
-    // input  >>  server_msg.str ; 
-    printf("---------------------------------------------------\n");
-    strcpy(server_msg.str,"XiyouLinux\n"); 
-    printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-    server_msg.flag = 666 ;
+    file myfile(server_msg,conn_fd);
+    myfile.real_send_file(server_msg);
+    
+
+    server_msg.flag = 2 ; //表示一个线程传输完成
     send(conn_fd,&server_msg,sizeof(TT),0);
 }
 int sure(TT server_msg,int conn_fd){
