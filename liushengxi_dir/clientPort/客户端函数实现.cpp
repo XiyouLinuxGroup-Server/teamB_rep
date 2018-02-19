@@ -27,6 +27,7 @@ Myclient::~Myclient(){
 }
 int Myclient::downloadFile(){ 
     TT client_msg ;
+    memset(&client_msg,0,sizeof(TT));
     cout << "请 输  入 你 想 要 下 载 的 文 件 名   "  ;
     cin >> client_msg.filename ;
     tag:cout << "请 输  入 线 程 下 载 数 量  "  ;
@@ -43,25 +44,32 @@ int Myclient::downloadFile(){
         return 0;
     }
     condTag.free_cond();
-    pthread_t tids[client_msg.threadCount];  //线程id  
+
+    pthread_t tids[client_msg.threadCount];  //线程id  4 
+    int ret ;
     for( int i = 0; i < client_msg.threadCount ; ++i )  
     {  
         printf("conn_fd == %d \n",conn_fd);
-        client_msg.temp = i  ;//只需要标识在哪一段即可
-        int ret = pthread_create( &tids[i], NULL, realdownloadFile, (void *)&client_msg); //开线程
+        client_msg.temp = i  ;//只需要标识在哪一段即可 
+        ret = pthread_create( &tids[i], NULL, realdownloadFile, (void *)&client_msg); //开线程
         if( ret != 0 ) //创建线程成功返回0  
         {  
            cout << "pthread_create error:error_code=" << ret << endl;  
         }  
-    }  
-
+    }
+    
 }
-
 void *realdownloadFile(void *arg){   //线程下载文件
     printf("------------------------------------------------\n");
     TT client_msg = *(TT *)arg ; 
     client_msg.flag = 1 ;
-    printf("send return number is %d \n",send(CONNFD,&client_msg,sizeof(TT),0) );
+    printf("client_msg.filename == %s \n",client_msg.filename);
+    printf("client_msg.temp == %d \n",client_msg.temp);
+    printf("client_msg.BityCount == %d \n",client_msg.BiteCount);
+    printf("client_msg.flag == %d \n",client_msg.flag);
+    printf("client_msg.threadCount == %d \n",client_msg.threadCount);
+    printf("client_msg.str == %s \n",client_msg.str);
+    send(CONNFD,&client_msg,sizeof(TT),0);
 }
 
 void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd 
@@ -100,7 +108,16 @@ void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd
 int keep_file(TT client_msg)
 {
     char file_name[100];
+    memset(file_name,0,sizeof(file_name));
     ofstream outfile ;
+
+    // printf("client_msg.filename == %s \n",client_msg.filename);
+    // printf("client_msg.temp == %d \n",client_msg.temp);
+    // printf("client_msg.BityCount == %d \n",client_msg.BiteCount);
+    // printf("client_msg.flag == %d \n",client_msg.flag);
+    // printf("client_msg.threadCount == %d \n",client_msg.threadCount);
+    // printf("client_msg.str == %s \n",client_msg.str);
+  
     sprintf(file_name,"刘生玺%d",client_msg.temp ); // 0  1 2 3 
     outfile.open(file_name, ios::out);  //只写 
     if(!outfile.is_open ())
