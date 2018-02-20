@@ -83,7 +83,7 @@ private:
 	void addfd( int epollfd, int fd, bool oneshot ) ;
 };
 void  *worker(void  *arg) ; //线程函数
-void reset_oneshot( int epollfd, int fd ) ;
+void reset_oneshot( int epollfd, int fd ) ; //worker 里面所使用的函数
 int sure(TT server_msg,int conn_fd);
 int send_file(TT server_msg ,const int &conn_fd); 
 
@@ -101,8 +101,8 @@ class Myclient {
 	int downloadFile();
 };
 void *my_recv(void* args) ;
-void *realdownloadFile(void *arg) ;
-static int CONNFD ;
+void *realdownloadFile(void *arg) ;//线程函数
+static int CONNFD ; //客户端套接字
 int keep_file(TT client_msg) ;
 
 

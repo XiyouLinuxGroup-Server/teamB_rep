@@ -126,7 +126,9 @@ void* worker( void* arg ) //线程函数
                 case 0: sure(server_msg,sockfd);   break ;      
                 case 1: send_file(server_msg,sockfd);    break ;  
                 case 110:  server_msg.flag = 1101 ; 
-                send(sockfd,&server_msg,sizeof(TT),0);break ;
+                    for(int i = 0;i< 5 ;i++)
+                        send(sockfd,&server_msg,sizeof(TT),0);
+                    break ;
                 default: break ;
             }
 
@@ -171,28 +173,6 @@ int file::real_send_file(TT &server_msg) {  //正式发送文件
         // usleep(15000);
         // //usleep(10000); //error
     }
-}
-
-void  *fun(void  *arg) 
-{
-    TT server_msg ;
-    const int conn_fd = *(int *)arg ; 
-    memset(&server_msg,0,sizeof(TT)) ;
-    int t = recv(conn_fd,&server_msg,sizeof(TT),0) ;   ///////////接受信息!!!!!!!!!!!!!!!
-   /*  if(t == 0)  //处理异常
-        warning_logout(server_msg ,conn_fd); */
-
-    printf("***********************************flag  ==  %d\n",server_msg.flag);
-    printf("temp  ==  %d\n",server_msg.temp );
-    switch(server_msg.flag)
-    {
-        case 0: sure(server_msg,conn_fd);   break ;      
-        case 1: send_file(server_msg,conn_fd);    break ;  
-        case 110:  server_msg.flag = 1101 ; 
-         send(conn_fd,&server_msg,sizeof(TT),0);break ;
-        default: break ;
-    }
-    pthread_exit(NULL);  //线程退出  
 }
 int  send_file(TT server_msg  ,const int &conn_fd ){ //向客户端发文件 ，大小从 start 开始读取多少字节即可
 //  printf("server_msg.filename == %s \n",server_msg.filename);

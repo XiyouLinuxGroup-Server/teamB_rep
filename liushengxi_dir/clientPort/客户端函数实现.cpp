@@ -58,7 +58,7 @@ int Myclient::downloadFile(){
            cout << "pthread_create error:error_code=" << rret << endl;  
         }  
     }
-    //等待所有线程执行完
+    //等待所有线程执行完 用不用这样呐 ？ 
     // int ret[client_msg.threadCount] ;
     // void *status[client_msg.threadCount];  
     // for(unsigned j = 0; j != client_msg.threadCount; ++j )  
