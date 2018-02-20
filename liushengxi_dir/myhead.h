@@ -39,10 +39,10 @@
 #include<sys/time.h>
 
 
-#define SERVER_IP  "127.0.0.1" 
+static const char* server_ip="127.0.0.1" ;
 #define SERVER_PORT  5201  
 
-#define    MAX_EVENTS_NUMBER   1024 
+#define    MAX_EVENT_NUMBER   1024 
 #define    LISTENQ      1024 
 #define    MAXSIZE  52
 #define  MAXSIZESTR  1024
@@ -70,20 +70,20 @@ private:
 	int sum_len ; //文件的总大小
 	int count ; //把文件指针移动到哪里
 };
-
+struct fds
+{
+   int epollfd;
+   int sockfd;
+};
 class Myserver{  
 public:
-    struct sockaddr_in address ;
-	struct epoll_event ev, events[MAX_EVENTS_NUMBER] ;
-    int listenfd ;
-public:
 	Myserver() ;  // 构造函数，初始化服务器
-	~Myserver(); //析构函数，关闭 listenfd 
 private:
 	int setnonblocking( int fd );
 	void addfd( int epollfd, int fd, bool oneshot ) ;
 };
-void  *fun(void  *arg) ; //线程函数
+void  *worker(void  *arg) ; //线程函数
+void reset_oneshot( int epollfd, int fd ) ;
 int sure(TT server_msg,int conn_fd);
 int send_file(TT server_msg ,const int &conn_fd); 
 

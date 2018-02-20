@@ -59,44 +59,44 @@ int Myclient::downloadFile(){
         }  
     }
     //等待所有线程执行完
-    int ret[client_msg.threadCount] ;
-    void *status[client_msg.threadCount];  
-    for(unsigned j = 0; j != client_msg.threadCount; ++j )  
-    {  
-        ret[j] = pthread_join(tids[j], &status[j]);  
-        if(ret[j] != 0)  
-        {  
-            if(ret[j] == ESRCH)  
-            {  
-                cout << "pthread_join():ESRCH 没有找到与给定线程ID相对应的线程" << endl;  
-            }  
-            else if(ret[j] == EDEADLK)  
-            {  
-                cout << "pthread_join():EDEADLKI 产生死锁" << endl;  
-            }  
-            else if(ret[j] == EINVAL)  
-            {  
-                cout << "pthread_join():EINVAL 与给定的县城ID相对应的线程是分离线程" << endl;  
-            }  
-            else  
-            {  
-                cout << "pthread_join():unknow error" << endl;  
-            }  
-            exit(-1);  
-        }  
-    }  
+    // int ret[client_msg.threadCount] ;
+    // void *status[client_msg.threadCount];  
+    // for(unsigned j = 0; j != client_msg.threadCount; ++j )  
+    // {  
+    //     ret[j] = pthread_join(tids[j], &status[j]);  
+    //     if(ret[j] != 0)  
+    //     {  
+    //         if(ret[j] == ESRCH)  
+    //         {  
+    //             cout << "pthread_join():ESRCH 没有找到与给定线程ID相对应的线程" << endl;  
+    //         }  
+    //         else if(ret[j] == EDEADLK)  
+    //         {  
+    //             cout << "pthread_join():EDEADLKI 产生死锁" << endl;  
+    //         }  
+    //         else if(ret[j] == EINVAL)  
+    //         {  
+    //             cout << "pthread_join():EINVAL 与给定的县城ID相对应的线程是分离线程" << endl;  
+    //         }  
+    //         else  
+    //         {  
+    //             cout << "pthread_join():unknow error" << endl;  
+    //         }  
+    //         exit(-1);  
+    //     }  
+    // }  
 }
 void *realdownloadFile(void *arg){   //线程下载文件
     printf("------------------------------------------------\n");
     TT client_msg = *(TT *)arg ; 
     client_msg.flag = 110  ;
-    printf("client_msg.filename == %s \n",client_msg.filename);
-    printf("client_msg.temp == %d \n",client_msg.temp);
-    printf("client_msg.BityCount == %d \n",client_msg.BiteCount);
-    printf("client_msg.flag == %d \n",client_msg.flag);
-    printf("client_msg.threadCount == %d \n",client_msg.threadCount);
-    printf("client_msg.str == %s \n",client_msg.str);
-    send(CONNFD,&client_msg,sizeof(TT),0);
+    // printf("client_msg.filename == %s \n",client_msg.filename);
+    // printf("client_msg.temp == %d \n",client_msg.temp);
+    // // printf("client_msg.BityCount == %d \n",client_msg.BiteCount);
+    // printf("client_msg.flag == %d \n",client_msg.flag);
+    // printf("client_msg.threadCount == %d \n",client_msg.threadCount);
+    // // printf("client_msg.str == %s \n",client_msg.str);
+    printf("send return is %d \n",send(CONNFD,&client_msg,sizeof(TT),0));
     delete static_cast<TT *>(arg) ;
     pthread_exit(NULL);
 }

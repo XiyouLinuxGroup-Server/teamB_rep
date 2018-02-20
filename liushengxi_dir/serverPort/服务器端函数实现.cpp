@@ -10,41 +10,53 @@ int Myserver::setnonblocking( int fd )
 }
 void Myserver::addfd( int epollfd, int fd, bool oneshot =false )
 {
-    ev.data.fd = fd;
-    ev.events = EPOLLIN | EPOLLET;
+    epoll_event event;
+    event.data.fd = fd;
+    event.events = EPOLLIN | EPOLLET;
     if( oneshot )
     {
-        ev.events |= EPOLLONESHOT;
+        event.events |= EPOLLONESHOT;
     }
-    epoll_ctl( epollfd, EPOLL_CTL_ADD, fd, &ev );
+    epoll_ctl( epollfd, EPOLL_CTL_ADD, fd, &event );
     setnonblocking( fd );
 }
+void reset_oneshot( int epollfd, int fd )
+{
+    epoll_event event;
+    event.data.fd = fd;
+    event.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
+    epoll_ctl( epollfd, EPOLL_CTL_MOD, fd, &event );
+}
 Myserver::Myserver(){
+    int ret = 0 ;
+    struct sockaddr_in address;
     bzero( &address, sizeof( address ) );
     address.sin_family = AF_INET ;
+    inet_pton( AF_INET, server_ip, &address.sin_addr );
     address.sin_port = htons(SERVER_PORT);
-    address.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    listenfd = socket( AF_INET, SOCK_STREAM, 0 );
+
+    int listenfd = socket( PF_INET, SOCK_STREAM, 0 );
     assert( listenfd >= 0 );
+
     int optval  =  1  ; //设置该套接字使之可以重新绑定端口
     if(setsockopt(listenfd,SOL_SOCKET,SO_REUSEADDR,(int *)&optval,sizeof(int))    < 0)
         printf("setsocketopt failed \n ");
 
-    int ret = bind( listenfd, ( struct sockaddr* )&address, sizeof( address ) );
+    ret = bind( listenfd, ( struct sockaddr* )&address, sizeof( address ) );
     assert( ret != -1 );
 
     ret = listen( listenfd, LISTENQ );
     assert( ret != -1 );
-    //epollfd epoll 句柄 
-    int epollfd = epoll_create(  256 );
-    assert( epollfd != -1 );
 
-    addfd( epollfd, listenfd, false ); ///false 表示不对 epoll 启用 ET 模式 
+    epoll_event events[ MAX_EVENT_NUMBER ];
+    int epollfd = epoll_create( 256 );
+    assert( epollfd != -1 );
+    addfd( epollfd, listenfd, false );//false 表示不对 epoll 启用 ET 模式 
 
     while( 1 )
     {
-        ret = epoll_wait( epollfd, events, MAX_EVENTS_NUMBER, -1 );
+        int ret = epoll_wait( epollfd, events, MAX_EVENT_NUMBER, -1 );
         if ( ret < 0 )
         {
             printf( "epoll failure\n" );
@@ -59,14 +71,15 @@ Myserver::Myserver(){
                 socklen_t client_addrlength = sizeof( client_address );
                 int connfd = accept( listenfd, ( struct sockaddr* )&client_address, &client_addrlength );
                 printf("\t\t accept a connection from %s\n",inet_ntoa(client_address.sin_addr));
-                addfd( epollfd, connfd, false);
+                addfd( epollfd, connfd, true );
             }
             else if ( events[i].events & EPOLLIN )
             {
-                pthread_t thread ;
-                if(pthread_create( &thread, NULL,fun ,(void *)&events[i].data.fd) < 0 )
-                    printf("pthread_create is failed !! \n");
-                pthread_detach(thread); //回收资源 
+                pthread_t thread;
+                fds fds_for_new_worker;
+                fds_for_new_worker.epollfd = epollfd;
+                fds_for_new_worker.sockfd = sockfd;
+                pthread_create( &thread, NULL, worker, ( void* )&fds_for_new_worker );
             }
             else
             {
@@ -74,10 +87,55 @@ Myserver::Myserver(){
             }
         }
     }
+    close( listenfd );
 }
-Myserver::~Myserver(){  //析构函数  
-    close(listenfd) ;
+
+void* worker( void* arg ) //线程函数
+{
+    TT server_msg ;
+    memset(&server_msg,0,sizeof(TT)) ;
+
+    const int sockfd = ( (fds*)arg )->sockfd;
+    int epollfd = ( (fds*)arg )->epollfd;
+
+    //printf( "start new thread to receive data on fd: %d\n", sockfd );
+    while( 1 )
+    {
+        int ret = recv(sockfd,&server_msg,sizeof(TT),0) ; 
+        if( ret == 0 )
+        {
+            close( sockfd );
+            printf( "foreiner closed the connection\n" );
+            break;
+        }
+        else if( ret < 0 )
+        {
+            if( errno == EAGAIN )
+            {
+                reset_oneshot( epollfd, sockfd );
+                printf( "read later\n" );
+                break;
+            }
+        }
+        else
+        {
+            printf("***********************************flag  ==  %d\n",server_msg.flag);
+            printf("temp  ==  %d\n",server_msg.temp );
+            switch(server_msg.flag)
+            {
+                case 0: sure(server_msg,sockfd);   break ;      
+                case 1: send_file(server_msg,sockfd);    break ;  
+                case 110:  server_msg.flag = 1101 ; 
+                send(sockfd,&server_msg,sizeof(TT),0);break ;
+                default: break ;
+            }
+
+        }
+    }
+    // printf( "end thread receiving data on fd: %d\n", sockfd );
 }
+
+
 
 file::file(TT  &server_msg ,const int &fd){
     file_fd = fd ; 
