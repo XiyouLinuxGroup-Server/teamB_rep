@@ -8,16 +8,24 @@ int Myserver::setnonblocking( int fd )
     fcntl( fd, F_SETFL, new_option );
     return old_option;
 }
-void Myserver::addfd( int epollfd, int fd, bool oneshot =false )
+void Myserver::addfd( int epollfd, int fd, bool oneshot  )
 {
+    epoll_event ev;
     ev.data.fd = fd;
-    ev.events = EPOLLIN | EPOLLET;
+    ev.events = EPOLLIN | EPOLLET ;
     if( oneshot )
     {
         ev.events |= EPOLLONESHOT;
     }
     epoll_ctl( epollfd, EPOLL_CTL_ADD, fd, &ev );
     setnonblocking( fd );
+}
+void reset_oneshot( int epollfd, int fd )
+{
+    epoll_event event;
+    event.data.fd = fd;
+    event.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
+    epoll_ctl( epollfd, EPOLL_CTL_MOD, fd, &event );
 }
 Myserver::Myserver(){
     bzero( &address, sizeof( address ) );
@@ -59,12 +67,15 @@ Myserver::Myserver(){
                 socklen_t client_addrlength = sizeof( client_address );
                 int connfd = accept( listenfd, ( struct sockaddr* )&client_address, &client_addrlength );
                 printf("\t\t accept a connection from %s\n",inet_ntoa(client_address.sin_addr));
-                addfd( epollfd, connfd, false);
+                addfd( epollfd, connfd, true );
             }
             else if ( events[i].events & EPOLLIN )
             {
                 pthread_t thread ;
-                if(pthread_create( &thread, NULL,fun ,(void *)&events[i].data.fd) < 0 )
+                fds fds_for_new_worker;
+                fds_for_new_worker.epollfd = epollfd;
+                fds_for_new_worker.sockfd = sockfd ;
+                if(pthread_create( &thread, NULL,fun ,(void *)&fds_for_new_worker ) < 0 )
                     printf("pthread_create is failed !! \n");
                 pthread_detach(thread); //回收资源 
             }
@@ -100,7 +111,7 @@ file::~file(){
 int file::real_send_file(TT &server_msg) {  //正式发送文件
     int  local = 0 ,temp_len = 0  ;
     char read_buf[MAXSIZE];
-    while(local != section_number ) //服务器不需要知道文件有多大，发完就完了啊
+    while(local != section_number ) //服务器不需要知道文件有多大，发完就完了啊 
     {
         memset(read_buf,0,sizeof(read_buf));
         infile.read(read_buf,128);
@@ -118,36 +129,51 @@ int file::real_send_file(TT &server_msg) {  //正式发送文件
 void  *fun(void  *arg) 
 {
     TT server_msg ;
-    const int conn_fd = *(int *)arg ; 
+    const int conn_fd = ( (fds*)arg )->sockfd;
+    int epollfd = ( (fds*)arg )->epollfd;
     memset(&server_msg,0,sizeof(TT)) ;
-    int t = recv(conn_fd,&server_msg,sizeof(TT),0) ;   ///////////接受信息!!!!!!!!!!!!!!!
-   /*  if(t == 0)  //处理异常
-        warning_logout(server_msg ,conn_fd); */
-
-    printf("***********************************flag  ==  %d\n",server_msg.flag);
-    printf("temp  ==  %d\n",server_msg.temp );
-    switch(server_msg.flag)
+    while( 1 )
     {
-        case 0: sure(server_msg,conn_fd);   break ;      
-        case 1: send_file(server_msg,conn_fd);    break ;  
-        case 110:  server_msg.flag = 1101 ; 
-         send(conn_fd,&server_msg,sizeof(TT),0);break ;
-        default: break ;
+        int ret = recv(conn_fd,&server_msg,sizeof(TT),0) ;
+        if( ret == 0 )
+        {
+            close( conn_fd );
+            printf( "foreiner closed the connection\n" );
+            break;
+        }
+        else if( ret < 0 )
+        {
+            if( errno == EAGAIN )
+            {
+                reset_oneshot( epollfd ,conn_fd );
+                break;
+            }
+        }
+        else
+        {
+            printf("****************************flag  ==  %d\n",server_msg.flag);
+            switch(server_msg.flag)
+            {
+                case 0: sure(server_msg,conn_fd);   break ;      
+                case 1: send_file(server_msg,conn_fd);    break ;  
+                case 110: cout << "666" << endl ;break ;
+                default: break ;
+            }
+        }
     }
-    pthread_exit(NULL);  //线程退出  
 }
 int  send_file(TT server_msg  ,const int &conn_fd ){ //向客户端发文件 ，大小从 start 开始读取多少字节即可
-//  printf("server_msg.filename == %s \n",server_msg.filename);
-//     printf("server_msg.temp == %d \n",server_msg.temp);
-//     printf("server_msg.BityCount == %d \n",server_msg.BiteCount);
-//     printf("server_msg.flag == %d \n",server_msg.flag);
-//     printf("server_msg.threadCount == %d \n",server_msg.threadCount);
-//     printf("server_msg.str == %s \n",server_msg.str);
+    printf("server_msg.filename == %s \n",server_msg.filename);
+    printf("server_msg.temp == %d \n",server_msg.temp);
+    printf("server_msg.BityCount == %d \n",server_msg.BiteCount);
+    printf("server_msg.flag == %d \n",server_msg.flag);
+    printf("server_msg.threadCount == %d \n",server_msg.threadCount);
+    printf("server_msg.str == %s \n",server_msg.str);
     file myfile(server_msg,conn_fd);
     myfile.real_send_file(server_msg);
-    
 
-    server_msg.flag = 2   ; //表示一个线程传输完成
+
+    server_msg.flag = 2 ; //表示一个线程传输完成
     send(conn_fd,&server_msg,sizeof(TT),0);
 }
 int sure(TT server_msg,int conn_fd){
