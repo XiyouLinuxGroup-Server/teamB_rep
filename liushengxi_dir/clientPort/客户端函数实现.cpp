@@ -86,7 +86,14 @@ int Myclient::downloadFile(){
             }  
             exit(-1);  
         }  
-    }  
+    } 
+    char str[512];
+    for(int i = 2 ;i<= client_msg.threadCount  ;i++ ){
+        sprintf(str,"cat %d.txt >> 1.txt ",i);
+        system(str);
+        system("mv ./1.txt ./下载好的文件  ");
+        system("rm ./*.txt");
+    }
 }
 void *realdownloadFile(void *arg){   //线程下载文件
     printf("------------------------------------------------\n");
@@ -142,7 +149,6 @@ void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd
             condTag.signal() ;
             break;
         case 1:
-         cout << massage.str  << endl ;
         //接受文件 ,保存所对应的文件数据
             keep_file(massage); //temp 为 主线 
             break ;
@@ -166,10 +172,12 @@ int keep_file(TT client_msg) //以temp归类
     sprintf(name,"%d.txt",client_msg.temp+1);
     while( ( ptr = readdir(dir) )  != NULL ){
         if(strcmp(ptr->d_name,name) == 0 ) {  //找到对应的文件直接追加写入即可
-            int file_fd =open(name,O_APPEND);
+        printf("找到了\n") ;
+            int file_fd = open(name,O_APPEND | O_WRONLY );
             if(file_fd  < 0)
                 cout << "open file error  "<< endl ;
-            write(file_fd,client_msg.str,client_msg.BiteCount) ;
+            if(write(file_fd,client_msg.str,client_msg.BiteCount) < 0) 
+                cout << "write is failed !! "  << endl ;
             close(file_fd);
             closedir(dir);
             return 0;

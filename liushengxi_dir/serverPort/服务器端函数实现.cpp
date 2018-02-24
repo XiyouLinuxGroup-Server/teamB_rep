@@ -137,32 +137,34 @@ void* worker( void* arg ) //线程函数
     // printf( "end thread receiving data on fd: %d\n", sockfd );
 }
 
-int  send_file(TT server_msg  ,const int &conn_fd ){ //flag == 1 
-    print(server_msg,"server_msg");
+int  send_file(TT server_msg  ,const int &conn_fd ){ //flag==1 
+    print(server_msg);
     char name[512];
     sprintf(name,"./file/%s",server_msg.filename);
     int file_fd = open(name,O_RDONLY) ;
     if(file_fd < 0 )
         cout << "create file failure  "<< endl ;
 
-    lseek(file_fd,server_msg.size*server_msg.temp,SEEK_SET);
+    if(lseek(file_fd,server_msg.size*server_msg.temp,SEEK_SET) < 0)
+        cout << "lseek is failed  " << endl ;
 
     int sum = 0 ,file_len = 0 ;
-    char read_buf[MAXSIZESTR]; //1024
+    char read_buf[MAXSIZESTR]; //1024 
     while(sum != server_msg.size )  
     {
         printf("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n");
         memset(read_buf,0,sizeof(read_buf));
         memset(server_msg.str,0,sizeof(server_msg.str));
 
-        file_len = read(file_fd,read_buf,128) ;
+        file_len = read(file_fd,read_buf,1) ;
 
         memcpy(server_msg.str,read_buf,file_len);    //把文件内容拷贝到client.msg.str
         cout << "server_msg.str == "<< server_msg.str  << endl ;
         sum = sum + file_len ;
         server_msg.BiteCount = file_len ;
+        server_msg.flag = 1 ;
 
-        // send(conn_fd,&server_msg,sizeof(TT),0) ;
+        send(conn_fd,&server_msg,sizeof(TT),0) ;
     }
     close(file_fd);
 }

@@ -147,15 +147,14 @@ private:
     pthread_cond_t m_cond;
 };
 static cond condTag ;
-static void print(TT msg,const char str[512]){
-    printf("%s.filename == %s \n",str,msg.filename);
-    printf("%s.temp == %d \n",str,msg.temp);
-    printf("%s.BityCount == %d \n",str,msg.BiteCount);
-    printf("%s.flag == %d \n",str,msg.flag);
-    printf("%s.threadCount == %d \n",str,msg.threadCount);
-    printf("%s.str == %s \n",str,msg.str);
-    printf("%s.size == %s \n",str,msg.size);
-
+static void print(TT msg){
+    printf("filename == %s \n",msg.filename);
+    printf("temp == %d \n",msg.temp);
+    printf("BityCount == %d \n",msg.BiteCount);
+    printf("flag == %d \n",msg.flag);
+    printf("threadCount == %d \n",msg.threadCount);
+    printf("str == %s \n",msg.str);
+    printf("size == %d \n",msg.size);
 }
 
 #endif
