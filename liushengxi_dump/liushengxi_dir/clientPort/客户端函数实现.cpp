@@ -38,8 +38,6 @@ int Myclient::downloadFile(){
     condTag.set();
     client_msg.flag = 0 ;
     send(conn_fd,&client_msg,sizeof(TT),0);
-    // sleep(10);
-    // exit(1);
 
     if(condTag.timewait() == false  ){  //超时
         condTag.free_cond();
@@ -91,11 +89,10 @@ int Myclient::downloadFile(){
 void *realdownloadFile(void *arg){   //线程下载文件
     printf("------------------------------------------------\n");
     TT client_msg = *(TT *)arg ; 
-    client_msg.flag = 1  ; 
-    client_msg.size = section_size ;
+    client_msg.flag = 1  ;
     // printf("client_msg.filename == %s \n",client_msg.filename);
     // printf("client_msg.temp == %d \n",client_msg.temp);
-    // // printf("client_msg.BiteCount == %d \n",client_msg.BiteCount);
+    // // printf("client_msg.BityCount == %d \n",client_msg.BiteCount);
     // printf("client_msg.flag == %d \n",client_msg.flag);
     // printf("client_msg.threadCount == %d \n",client_msg.threadCount);
     // // printf("client_msg.str == %s \n",client_msg.str);
@@ -122,58 +119,43 @@ void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd
         }
         switch(massage.flag) {
         case  999 :
-            //文件名检测失败
+            //私聊消息
             cout << "sorry !"<< massage.str  << endl ;
             break;
         case  666 :
-            //文件名检测通过，创建对应的几个文件
-            int file_fd ;
-            char name[512];
-            printf("massagr.temp == %d \n",massage.temp); //每段的大小
-            section_size = massage.temp ;
-            for(int i = 0 ;i < massage.threadCount ;i++ ){  //4 
-                sprintf(name,"./%d.txt",i+1 ); 
-                file_fd = open(name,O_EXCL | O_CREAT,S_IRUSR | S_IWUSR ); //所有者可读取,可写入
-                if(file_fd < 0 )
-                    cout << "create file failure  "<< endl ;
-                close(file_fd);
-            }
+            //私聊消息
             cout << "good job ! "<< massage.str  << endl ;
             condTag.signal() ;
             break;
         case 1:
-         cout << massage.str  << endl ;
-        //接受文件 ,保存所对应的文件数据
-            keep_file(massage); //temp 为 主线 
+        //接受文件 
+            keep_file(massage);
             break ;
         case  1101  :
-            //测试代码 
+            //私聊消息
             cout << "客户端接受到数据 ： flag ==  "<< massage.flag   << endl ;
             break;
         }
     }
 }
-int keep_file(TT client_msg) //以temp归类
+int keep_file(TT client_msg)
 {
-    char path[MAXSIZE] ="./" ;
-    DIR *dir ;
-    struct dirent *ptr;
-    if(   (dir=opendir(path))  == NULL  )
-    {
-        perror("opendir");
-    }
-    char name[512];
-    sprintf(name,"%d.txt",client_msg.temp+1);
-    while( ( ptr = readdir(dir) )  != NULL ){
-        if(strcmp(ptr->d_name,name) == 0 ) {  //找到对应的文件直接追加写入即可
-            int file_fd =open(name,O_APPEND);
-            if(file_fd  < 0)
-                cout << "open file error  "<< endl ;
-            write(file_fd,client_msg.str,client_msg.BiteCount) ;
-            close(file_fd);
-            closedir(dir);
-            return 0;
-        }
-    }
+    char file_name[100];
+    memset(file_name,0,sizeof(file_name));
+    ofstream outfile ;
+
+    // // printf("client_msg.filename == %s \n",client_msg.filename);
+    // // printf("client_msg.temp == %d \n",client_msg.temp);
+    // // printf("client_msg.BityCount == %d \n",client_msg.BiteCount);
+    // // printf("client_msg.flag == %d \n",client_msg.flag);
+    // // printf("client_msg.threadCount == %d \n",client_msg.threadCount);
+    // printf("client_msg.str == %s \n",client_msg.str);
+  
+    sprintf(file_name,"刘生玺%d",client_msg.temp ); // 0  1 2 3 
+    outfile.open(file_name, ios::out);  //只写 
+    if(!outfile.is_open ())
+        cout << "Open file failure" << endl;
+    outfile.write(client_msg.str,client_msg.BiteCount);
+    outfile.close();
 }
 

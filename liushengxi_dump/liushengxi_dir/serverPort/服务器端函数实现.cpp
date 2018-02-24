@@ -137,34 +137,55 @@ void* worker( void* arg ) //线程函数
     // printf( "end thread receiving data on fd: %d\n", sockfd );
 }
 
-int  send_file(TT server_msg  ,const int &conn_fd ){ //flag == 1 
-    print(server_msg,"server_msg");
-    char name[512];
-    sprintf(name,"./file/%s",server_msg.filename);
-    int file_fd = open(name,O_RDONLY) ;
-    if(file_fd < 0 )
-        cout << "create file failure  "<< endl ;
 
-    lseek(file_fd,server_msg.size*server_msg.temp,SEEK_SET);
 
-    int sum = 0 ,file_len = 0 ;
-    char read_buf[MAXSIZESTR]; //1024
-    while(sum != server_msg.size )  
-    {
-        printf("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n");
-        memset(read_buf,0,sizeof(read_buf));
-        memset(server_msg.str,0,sizeof(server_msg.str));
+// file::file(TT  &server_msg ,const int &fd){
+//     file_fd = fd ; 
+//     char file_name[MAXSIZE]; 
+//     strcpy(file_name,server_msg.filename); //filename = test.data  
+//     sprintf(file_name,"./file/%s",server_msg.filename);
+//     infile.open(file_name, ios::in);  //只读 
+//     if(!infile.is_open ())
+//         cout << "Open file failure" << endl;
+//     infile.seekg(0, ios::end);
+//     sum_len = infile.tellg(); 
+//     count = server_msg.temp ; //第几个线程 0 1 2 3 
+//     section_number = sum_len /server_msg.threadCount ; //注意会有余数的问题
+//     infile.seekg(0, ios::beg);
+//     infile.seekg(section_number*count,ios::beg);
+// }
+// file::~file(){
+//     infile.close();
+// }
+// int file::real_send_file(TT &server_msg) {  //正式发送文件
+//     int  local = 0 ,temp_len = 0  ;
+//     char read_buf[MAXSIZE];
+//     while(local != section_number ) //服务器不需要知道文件有多大，发完就完了啊
+//     {
+//         memset(read_buf,0,sizeof(read_buf));
+//         infile.read(read_buf,128);
+//         temp_len = infile.gcount() ;
+//         memcpy(server_msg.str,read_buf,temp_len);    //把文件内容拷贝到server_msg.str
+//         local  = local + temp_len ;
+//         server_msg.BiteCount = temp_len ;
+//         send(file_fd,&server_msg,sizeof(TT),0) ;
+//         // //printf("**********************\n");
+//         // usleep(15000);
+//         // //usleep(10000); //error
+//     }
+// }
+int  send_file(TT server_msg  ,const int &conn_fd ){ //向客户端发文件 ，大小从 start 开始读取多少字节即可
+//  printf("server_msg.filename == %s \n",server_msg.filename);
+//     printf("server_msg.temp == %d \n",server_msg.temp);
+//     printf("server_msg.BityCount == %d \n",server_msg.BiteCount);
+//     printf("server_msg.flag == %d \n",server_msg.flag);
+//     printf("server_msg.threadCount == %d \n",server_msg.threadCount);
+//     printf("server_msg.str == %s \n",server_msg.str);
+ 
+    
 
-        file_len = read(file_fd,read_buf,128) ;
-
-        memcpy(server_msg.str,read_buf,file_len);    //把文件内容拷贝到client.msg.str
-        cout << "server_msg.str == "<< server_msg.str  << endl ;
-        sum = sum + file_len ;
-        server_msg.BiteCount = file_len ;
-
-        // send(conn_fd,&server_msg,sizeof(TT),0) ;
-    }
-    close(file_fd);
+    server_msg.flag = 2   ; //表示一个线程传输完成
+    send(conn_fd,&server_msg,sizeof(TT),0);
 }
 int sure(TT server_msg,int conn_fd){
     //1.判断文件是否存在 ？
@@ -175,18 +196,10 @@ int sure(TT server_msg,int conn_fd){
     {
         perror("opendir");
     }
-    char name[512];
     while( ( ptr = readdir(dir) )  != NULL ){
         if(strcmp(ptr->d_name,server_msg.filename) == 0 ) {  
             //说明存在该文件,等待线程申请下载,发过来的还有线程数目，计算有多少个字节，客户端创建多少个文件
-            sprintf(name,"./file/%s",server_msg.filename);
-            int file_fd = open(name,O_RDONLY) ;
-            if(file_fd < 0 )
-                cout << "create file failure  "<< endl ;
-            int filelen = lseek(file_fd,0L,SEEK_END);    
-            cout << "filelen == " << filelen << endl ;
-            server_msg.temp = filelen / server_msg.threadCount ;
-            close(file_fd);
+
             strcpy(server_msg.str,"开 始 下 载 ------------\n"); 
             server_msg.flag = 666 ;
             send(conn_fd,&server_msg,sizeof(TT),0);

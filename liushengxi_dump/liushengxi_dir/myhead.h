@@ -52,10 +52,23 @@ struct TT{ //消息信息
 	//flag == 1 正式开始传输
 	int temp ; // 1 2 3 4 
 	unsigned threadCount ; //线程数目 4
-    unsigned size ; //每一段的大小字节数 
 	unsigned BiteCount ; //每次发多大的包 
 	char filename[MAXSIZE] ; //要请求的文件名 
 	char str[MAXSIZESTR] ; //读取文件数据
+};
+
+class  file{
+public:
+	file(TT &,const int &);
+	~file();
+	int getSum() ;
+	int real_send_file(TT &);
+private:
+	std::ifstream infile ;
+	int file_fd ;
+	int section_number ; // 每一段的字节大小
+	int sum_len ; //文件的总大小
+	int count ; //把文件指针移动到哪里
 };
 
 struct fds
@@ -91,7 +104,6 @@ class Myclient {
 void *my_recv(void* args) ;
 void *realdownloadFile(void *arg) ;//线程函数
 static int CONNFD ; //客户端套接字
-static int section_size ;
 int keep_file(TT client_msg) ;
 
 
@@ -147,15 +159,5 @@ private:
     pthread_cond_t m_cond;
 };
 static cond condTag ;
-static void print(TT msg,const char str[512]){
-    printf("%s.filename == %s \n",str,msg.filename);
-    printf("%s.temp == %d \n",str,msg.temp);
-    printf("%s.BityCount == %d \n",str,msg.BiteCount);
-    printf("%s.flag == %d \n",str,msg.flag);
-    printf("%s.threadCount == %d \n",str,msg.threadCount);
-    printf("%s.str == %s \n",str,msg.str);
-    printf("%s.size == %s \n",str,msg.size);
-
-}
 
 #endif
