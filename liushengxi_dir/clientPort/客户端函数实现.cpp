@@ -87,13 +87,14 @@ int Myclient::downloadFile(){
             exit(-1);  
         }  
     } 
-    char str[512];
-    for(int i = 2 ;i<= client_msg.threadCount  ;i++ ){
-        sprintf(str,"cat %d.txt >> 1.txt ",i);
-        system(str);
-        system("mv ./1.txt ./下载好的文件  ");
-        system("rm ./*.txt");
-    }
+    // //线程完成之后合并文件
+    // char str[512];
+    // for(int i = 2 ;i<= client_msg.threadCount  ;i++ ){
+    //     sprintf(str,"cat %d.txt >> 1.txt ",i);
+    //     system(str);
+    //     system("mv ./1.txt ./下载好的文件  ");
+    //     system("rm ./*.txt");
+    // }
 }
 void *realdownloadFile(void *arg){   //线程下载文件
     printf("------------------------------------------------\n");
