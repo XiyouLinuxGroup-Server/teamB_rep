@@ -156,7 +156,7 @@ int  send_file(TT server_msg  ,const int &conn_fd ){ //flag==1
         memset(read_buf,0,sizeof(read_buf));
         memset(server_msg.str,0,sizeof(server_msg.str));
 
-        file_len = read(file_fd,read_buf,1) ;
+        file_len = read(file_fd,read_buf,4) ;
 
         memcpy(server_msg.str,read_buf,file_len);    //把文件内容拷贝到client.msg.str
         cout << "server_msg.str == "<< server_msg.str  << endl ;
