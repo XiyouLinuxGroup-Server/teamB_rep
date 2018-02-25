@@ -23,6 +23,13 @@ Myclient::Myclient(const char *ip ,const int port ){
     CONNFD = conn_fd ;
 }
 Myclient::~Myclient(){
+    char str[512];
+    for(int i = 2 ;i<=  threadCount  ;i++ ){
+        sprintf(str,"cat %d.txt >> 1.txt ",i);
+        system(str);
+    }
+    system("mv ./1.txt ./downloadfile  ");
+    system("rm ./*.txt");
 	close(conn_fd);
 }
 int Myclient::downloadFile(){ 
@@ -46,7 +53,7 @@ int Myclient::downloadFile(){
         return 0;
     }
     condTag.free_cond();
-
+    threadCount = client_msg.threadCount ;
     int rret ;
     pthread_t tids[client_msg.threadCount];  //线程id  4   2
     TT *param ;
@@ -87,14 +94,6 @@ int Myclient::downloadFile(){
             exit(-1);  
         }  
     } 
-    // //线程完成之后合并文件
-    // char str[512];
-    // for(int i = 2 ;i<= client_msg.threadCount  ;i++ ){
-    //     sprintf(str,"cat %d.txt >> 1.txt ",i);
-    //     system(str);
-    //     system("mv ./1.txt ./下载好的文件  ");
-    //     system("rm ./*.txt");
-    // }
 }
 void *realdownloadFile(void *arg){   //线程下载文件
     printf("------------------------------------------------\n");

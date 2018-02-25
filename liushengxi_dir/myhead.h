@@ -83,6 +83,7 @@ int send_file(TT server_msg ,const int &conn_fd);
 class Myclient {   
 	public:
 	int conn_fd ;
+    int threadCount ;
     struct sockaddr_in  server_address ;
 	Myclient(const char *ip ,const int port );  // 构造函数
 	~Myclient(); //析构函数
