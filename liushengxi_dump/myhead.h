@@ -37,6 +37,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include<sys/time.h>
+#include<error.h>
 
 
 static const char* server_ip= "127.0.0.1" ;
@@ -72,7 +73,7 @@ private:
 };
 void  *worker(void  *arg) ; //线程函数
 void reset_oneshot( int epollfd, int fd ) ; //worker 里面所使用的函数
-int sure(TT server_msg,int conn_fd);
+int sure(TT server_msg,const int conn_fd);
 int send_file(TT server_msg ,const int &conn_fd); 
 
 
@@ -82,12 +83,12 @@ int send_file(TT server_msg ,const int &conn_fd);
 
 class Myclient {   
 	public:
-	int conn_fd ;
-    int threadCount ; //保存一下线程数目
+	int conn_fd ; //构造函数链接套接字，析构函数关闭套接字
     struct sockaddr_in  server_address ;
-	Myclient(const char *ip ,const int port );  // 构造函数
+	explicit Myclient(const char *ip ,const int port );  // 构造函数
 	~Myclient(); //析构函数
-	int downloadFile();
+	TT downloadFile();
+    int Mergefiles(TT ) ; //合并文件
 };
 void *my_recv(void* args) ;
 void *realdownloadFile(void *arg) ;//线程函数
@@ -148,6 +149,8 @@ private:
     pthread_cond_t m_cond;
 };
 static cond condTag ;
+static int filefds[500] ;
+
 static void print(TT msg){ //测试函数
     printf("filename == %s \n",msg.filename);
     printf("temp == %d \n",msg.temp);

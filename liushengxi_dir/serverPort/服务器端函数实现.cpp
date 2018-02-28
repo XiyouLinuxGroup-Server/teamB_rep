@@ -113,7 +113,7 @@ void* worker( void* arg ) //线程函数
             if( errno == EAGAIN )
             {
                 reset_oneshot( epollfd, sockfd );
-                printf( "read later\n" );
+                // printf( "read later\n" );
                 break;
             }
         }
@@ -146,7 +146,7 @@ int  send_file(TT server_msg  ,const int &conn_fd ){   //flag==1
     char name[512];
     memset(name,0,sizeof(name));
     sprintf(name,"./file/%s",server_msg.filename);
-    int file_fd = open(name,O_RDONLY) ;
+    int file_fd = open(name, O_RDONLY) ;
     if(file_fd < 0 )
     {
         myerror("open file failed  ",__LINE__) ;
@@ -163,6 +163,14 @@ int  send_file(TT server_msg  ,const int &conn_fd ){   //flag==1
              realbuf_size = i ;
              break ;
          }
+    }
+    //如果realbuf_size == 1 的话，会有bug,不知道==2 ，会不会错呐
+    if(realbuf_size < 2 )
+    {
+        strcpy(server_msg.str," 改变一下线程数目吧!一个字节一个字节的传输也太慢了呀 \n"); 
+        server_msg.flag = 5 ;
+        send(conn_fd,&server_msg,sizeof(TT),0) ;
+        return 0 ;
     }
     while( sum <  server_msg.size )  
     {

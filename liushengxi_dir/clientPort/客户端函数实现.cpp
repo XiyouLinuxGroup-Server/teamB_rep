@@ -133,6 +133,10 @@ void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd
             exit(0);
         }
         switch(massage.flag) {
+        case  5 :
+            //一个字节一个字节的传输也太慢了呀
+            cout << " Sorry !" << massage.str  << endl ;
+            exit(-1) ;
         case  999 :
             //文件名检测失败
             cout << " Sorry !"<< massage.str  << endl ;

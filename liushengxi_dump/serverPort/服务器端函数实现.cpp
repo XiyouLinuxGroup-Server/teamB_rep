@@ -119,8 +119,7 @@ void* worker( void* arg ) //线程函数
         }
         else
         {
-            printf("***********************************flag  ==  %d\n",server_msg.flag);
-            printf("temp  ==  %d\n",server_msg.temp );
+            printf("********************************************flag  ==  %d\n",server_msg.flag);
             switch(server_msg.flag)
             {
                 case 0: sure(server_msg,sockfd);   break ;      
@@ -137,26 +136,41 @@ void* worker( void* arg ) //线程函数
     // printf( "end thread receiving data on fd: %d\n", sockfd );
 }
 
-int  send_file(TT server_msg  ,const int &conn_fd ){ //flag==1 
-    print(server_msg);
-    char name[512];
-    sprintf(name,"./file/%s",server_msg.filename);
-    int file_fd = open(name,O_RDONLY) ;
-    if(file_fd < 0 )
-        cout << "create file failure  "<< endl ;
 
+
+
+int  send_file(TT server_msg  ,const int &conn_fd ){   //flag==1 
+
+    //print(server_msg);
+
+    char name[512];
+    memset(name,0,sizeof(name));
+    sprintf(name,"./file/%s",server_msg.filename);
+    int file_fd = open(name, O_RDONLY) ;
+    if(file_fd < 0 )
+    {
+        myerror("open file failed  ",__LINE__) ;
+    }
     if(lseek(file_fd,server_msg.size*server_msg.temp,SEEK_SET) < 0)
-        cout << "lseek is failed  " << endl ;
+        myerror("lseek file failed  ",__LINE__) ;
 
     int sum = 0 ,file_len = 0 ;
     char read_buf[MAXSIZESTR]; //1024 
-
+    int realbuf_size ;
+     //server_msg.size   每一段的大小字节数,找到它的最大约数
+    for(int i = MAXSIZESTR - 1 ;i >= 1 ;i-- ) {
+         if((server_msg.size % i ) == 0 ){
+             realbuf_size = i ;
+             break ;
+         }
+    }
+    //如果realbuf_size == 1 的话，会有bug
     while( sum <  server_msg.size )  
     {
         memset(read_buf,0,sizeof(read_buf));
         memset(server_msg.str,0,sizeof(server_msg.str));
 
-        file_len = read(file_fd,read_buf,1) ;
+        file_len = read(file_fd,read_buf,realbuf_size) ;
 
         memcpy(server_msg.str,read_buf,file_len);    //把文件内容拷贝到client.msg.str
         // cout << "   server_msg.str == "<< server_msg.str  << endl ;
@@ -166,17 +180,33 @@ int  send_file(TT server_msg  ,const int &conn_fd ){ //flag==1
 
         send(conn_fd,&server_msg,sizeof(TT),0) ;
     }
-    // if(server_msg.temp == server_msg.threadCount-1) {  //最后一个线程
-    //     file_len = read(file_fd,read_buf,server_msg.size) ;
-    //     if(file_len != 0 ){  //说明还有剩余
-    //         server_msg.BiteCount = file_len ;
-    //         server_msg.flag = 1 ;
 
-    //         send(conn_fd,&server_msg,sizeof(TT),0) ;
-    //     }
-    // }
+    if( server_msg.temp  ==  server_msg.threadCount-1 ) {  //最后一个线程
+        int ll = read(file_fd,read_buf,server_msg.size) ; 
+        //剩余的字节数大于每一段的大小就会有 bug ,暂时先胡略
+        if( ll != 0 ){  //说明还有剩余
+
+            memset(server_msg.str,0,sizeof(server_msg.str));
+
+
+            memcpy(server_msg.str,read_buf,ll);    //把文件内容拷贝到client.msg.str
+
+            
+            server_msg.BiteCount = ll ;
+            server_msg.flag = 1 ;
+
+            send(conn_fd,&server_msg,sizeof(TT),0) ;
+        }
+    }
     close(file_fd);
 }
+
+
+
+
+
+
+
 int sure(TT server_msg,int conn_fd){
     //1.判断文件是否存在 ？
     char path[MAXSIZE] ="./file" ;
@@ -184,21 +214,24 @@ int sure(TT server_msg,int conn_fd){
     struct dirent *ptr;
     if(   (dir=opendir(path))  == NULL  )
     {
-        perror("opendir");
+        myerror("opendir ./file failed ",__LINE__);
     }
     char name[512];
     while( ( ptr = readdir(dir) )  != NULL ){
         if(strcmp(ptr->d_name,server_msg.filename) == 0 ) {  
             //说明存在该文件,等待线程申请下载,发过来的还有线程数目，计算有多少个字节，客户端创建多少个文件
+            memset(name,0,sizeof(name));
             sprintf(name,"./file/%s",server_msg.filename);
             int file_fd = open(name,O_RDONLY) ;
             if(file_fd < 0 )
-                cout << "create file failure  "<< endl ;
-            int filelen = lseek(file_fd,0L,SEEK_END);    
-            cout << "filelen == " << filelen << endl ;
-            server_msg.temp = filelen / server_msg.threadCount ;
+            {
+                myerror("create file failed ",__LINE__ );
+            }
+            int file_sum_len = lseek(file_fd,0L,SEEK_END);    
+            cout << "file_sum_len == " << file_sum_len << endl ;
+            server_msg.temp = file_sum_len / server_msg.threadCount ;
             close(file_fd);
-            strcpy(server_msg.str,"开 始 下 载 ------------\n"); 
+            strcpy(server_msg.str," 下 载 中，请 稍 侯 ------------->> \n"); 
             server_msg.flag = 666 ;
             send(conn_fd,&server_msg,sizeof(TT),0);
             closedir(dir);
@@ -207,7 +240,8 @@ int sure(TT server_msg,int conn_fd){
     }
     // 出循环代表不存在
     closedir(dir);
-    strcpy(server_msg.str,"该文件在服务器上不存在，请核实后重新下载\n"); 
+    strcpy(server_msg.str," 该文件在服务器上不存在，请核实后重新下载\n"); 
     server_msg.flag = 999 ;
     send(conn_fd,&server_msg,sizeof(TT),0);
+    return 0 ;
 }

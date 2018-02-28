@@ -23,17 +23,9 @@ Myclient::Myclient(const char *ip ,const int port ){
     CONNFD = conn_fd ;
 }
 Myclient::~Myclient(){
-    char str[512];
-    for(int i = 2 ;i<=  threadCount  ;i++ ){
-        memset(str,0,sizeof(str));
-        sprintf(str,"cat %d.txt >> 1.txt ",i);
-        system(str);
-    }
-    system("mv ./1.txt ./download") ;
-    system("rm ./*.txt");
 	close(conn_fd);
 }
-int Myclient::downloadFile(){ 
+TT Myclient::downloadFile(){ 
     TT client_msg ;
     memset(&client_msg,0,sizeof(TT));
     cout << "请 输  入 你 想 要 下 载 的 文 件 名   "  ;
@@ -45,16 +37,15 @@ int Myclient::downloadFile(){
 
     condTag.set();
     client_msg.flag = 0 ;
-    send(conn_fd,&client_msg,sizeof(TT),0);
-    // sleep(10);
-    // exit(1);
+    send(conn_fd,&client_msg,sizeof(TT),0); //进行确认
 
     if(condTag.timewait() == false  ){  //超时
         condTag.free_cond();
-        return 0;
+        exit(-1);
     }
     condTag.free_cond();
-    threadCount = client_msg.threadCount ;
+
+/* 打印正在下载 */
     int rret ;
     pthread_t tids[client_msg.threadCount];  //线程id  4   2
     TT *param ;
@@ -65,10 +56,10 @@ int Myclient::downloadFile(){
         rret = pthread_create( &tids[i], nullptr, realdownloadFile, (void *)param); //开线程
         if( rret != 0 ) //创建线程成功返回0  
         {  
-           cout << "pthread_create error:error_code=" << rret << endl;  
+           myerror(" pthread_create  failed ",__LINE__);
         }  
     }
-    // 等待所有线程执行完 用不用这样呐 ？ 
+    // 等待所有线程执行完
     int ret[client_msg.threadCount] ;
     void *status[client_msg.threadCount];  
     for(unsigned j = 0; j != client_msg.threadCount; ++j )  
@@ -94,17 +85,36 @@ int Myclient::downloadFile(){
             }  
             exit(-1);  
         }  
-    } 
+    }
+    return client_msg ; 
 }
 void *realdownloadFile(void *arg){   //线程下载文件
-    printf("------------------------------------------------\n");
     TT client_msg = *(TT *)arg ; 
     client_msg.flag = 1  ; 
     client_msg.size = section_size ;
-    printf("send return is %d \n",send(CONNFD,&client_msg,sizeof(TT),0));
+
+    send(CONNFD,&client_msg,sizeof(TT),0);
+
     delete static_cast<TT *>(arg) ;
     pthread_exit(NULL);
 }
+
+int Myclient::Mergefiles(TT client_msg){  //合并文件
+    char str[512];
+    for(int j = 1 ;j<= client_msg.threadCount ;j++){
+        close(filefds[j]);     //关闭文件描述符
+    }
+    system("touch download");
+    for(int i = 1 ;i<= client_msg.threadCount ;i++ ){
+        memset(str,0,sizeof(str));
+        sprintf(str,"cat %d.txt >>  download ",i);
+        system(str);
+    }
+    system("rm *.txt") ;
+    printf("<< -------------下 载 成 功 ，文件名为 download \n\n\n");
+    return 0;
+}
+
 
 void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd 
 {
@@ -125,7 +135,7 @@ void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd
         switch(massage.flag) {
         case  999 :
             //文件名检测失败
-            cout << "sorry !"<< massage.str  << endl ;
+            cout << " Sorry !"<< massage.str  << endl ;
             break;
         case  666 :
             //文件名检测通过，创建对应的几个文件
@@ -134,16 +144,19 @@ void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd
             printf("massagr.temp == %d \n",massage.temp); //每段的大小
             section_size = massage.temp ;
             for(int i = 0 ;i < massage.threadCount ;i++ ){  //4 
+                memset(name,0,sizeof(name));
                 sprintf(name,"./%d.txt",i+1 ); 
-                file_fd = open(name,O_EXCL | O_CREAT,S_IRUSR | S_IWUSR|S_IRGRP | S_IROTH ); 
-                //所有者可写入,其余人只可以读取
+                file_fd = open(name,O_TRUNC | O_CREAT |O_APPEND | O_WRONLY,S_IRUSR | S_IWUSR); 
+                //所有者可写入,可读取 O_TRUNC:如果文件存在，且以可写的方式打开时，将文件清零
                 if(file_fd < 0 )
-                    cout << "create file failure  "<< endl ;
-                close(file_fd);
+                {
+                    myerror("create file failed  ",__LINE__) ;
+                }
+                filefds[i+1] = file_fd ; 
             }
-            cout << "good job ! "<< massage.str  << endl ;
+            cout << massage.str  << endl ;
             condTag.signal() ;
-            break;
+            break ;
         case 1:
         //接受文件 ,保存所对应的文件数据
             keep_file(massage); //temp 为 主线 
@@ -155,29 +168,12 @@ void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd
         }
     }
 }
-int keep_file(TT client_msg) //以temp归类
+int keep_file(TT client_msg)   //以temp归类
 {
-    char path[MAXSIZE] ="./" ;
-    DIR *dir ;
-    struct dirent *ptr;
-    if(   (dir=opendir(path))  == NULL  )
-    {
-        perror("opendir");
-    }
-    char name[512];
-    sprintf(name,"%d.txt",client_msg.temp+1);
-    while( ( ptr = readdir(dir) )  != NULL ){
-        if(strcmp(ptr->d_name,name) == 0 ) {  //找到对应的文件直接追加写入即可
-        // printf("找到了\n") ;
-            int file_fd = open(name,O_APPEND | O_WRONLY );
-            if(file_fd  < 0)
-                cout << "open file error  "<< endl ;
-            if(write(file_fd,client_msg.str,client_msg.BiteCount) < 0) 
-                cout << "write is failed !! "  << endl ;
-            close(file_fd);
-            closedir(dir);
-            return 0;
-        }
-    }
+    // print(client_msg);
+    
+    if( write(filefds[client_msg.temp+1],client_msg.str,client_msg.BiteCount) < 0) 
+        myerror("write file failed ",__LINE__ );
+    return 0;
 }
 
