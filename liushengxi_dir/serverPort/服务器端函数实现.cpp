@@ -120,7 +120,6 @@ void* worker( void* arg ) //线程函数
         else
         {
             printf("***********************************flag  ==  %d\n",server_msg.flag);
-            printf("temp  ==  %d\n",server_msg.temp );
             switch(server_msg.flag)
             {
                 case 0: sure(server_msg,sockfd);   break ;      
@@ -140,42 +139,43 @@ void* worker( void* arg ) //线程函数
 int  send_file(TT server_msg  ,const int &conn_fd ){ //flag==1 
     print(server_msg);
     char name[512];
+    memset(name,0,sizeof(name));
     sprintf(name,"./file/%s",server_msg.filename);
     int file_fd = open(name,O_RDONLY) ;
     if(file_fd < 0 )
-        cout << "create file failure  "<< endl ;
-
+    {
+        myerror("open file failed  ",__LINE__) ;
+    }
     if(lseek(file_fd,server_msg.size*server_msg.temp,SEEK_SET) < 0)
-        cout << "lseek is failed  " << endl ;
+        myerror("lseek file failed  ",__LINE__) ;
 
     int sum = 0 ,file_len = 0 ;
     char read_buf[MAXSIZESTR]; //1024 
 
     while( sum <  server_msg.size )  
     {
-        // printf("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n");
         memset(read_buf,0,sizeof(read_buf));
         memset(server_msg.str,0,sizeof(server_msg.str));
 
         file_len = read(file_fd,read_buf,1) ;
 
         memcpy(server_msg.str,read_buf,file_len);    //把文件内容拷贝到client.msg.str
-        cout << "   server_msg.str == "<< server_msg.str  << endl ;
+        // cout << "   server_msg.str == "<< server_msg.str  << endl ;
         sum = sum + file_len ;
         server_msg.BiteCount = file_len ;
         server_msg.flag = 1 ;
 
         send(conn_fd,&server_msg,sizeof(TT),0) ;
     }
-    if(server_msg.temp == server_msg.threadCount-1) { //最后一个线程
-        file_len = read(file_fd,read_buf,server_msg.size) ;
-        if(file_len != 0 ){  //说明还有剩余
-            server_msg.BiteCount = file_len ;
-            server_msg.flag = 1 ;
+    // if(server_msg.temp == server_msg.threadCount-1) {  //最后一个线程
+    //     file_len = read(file_fd,read_buf,server_msg.size) ;
+    //     if(file_len != 0 ){  //说明还有剩余
+    //         server_msg.BiteCount = file_len ;
+    //         server_msg.flag = 1 ;
 
-            send(conn_fd,&server_msg,sizeof(TT),0) ;
-        }
-    }
+    //         send(conn_fd,&server_msg,sizeof(TT),0) ;
+    //     }
+    // }
     close(file_fd);
 }
 int sure(TT server_msg,int conn_fd){
@@ -185,21 +185,24 @@ int sure(TT server_msg,int conn_fd){
     struct dirent *ptr;
     if(   (dir=opendir(path))  == NULL  )
     {
-        perror("opendir");
+        myerror("opendir ./file failed ",__LINE__);
     }
     char name[512];
     while( ( ptr = readdir(dir) )  != NULL ){
         if(strcmp(ptr->d_name,server_msg.filename) == 0 ) {  
             //说明存在该文件,等待线程申请下载,发过来的还有线程数目，计算有多少个字节，客户端创建多少个文件
+            memset(name,0,sizeof(name));
             sprintf(name,"./file/%s",server_msg.filename);
             int file_fd = open(name,O_RDONLY) ;
             if(file_fd < 0 )
-                cout << "create file failure  "<< endl ;
-            int filelen = lseek(file_fd,0L,SEEK_END);    
-            cout << "filelen == " << filelen << endl ;
-            server_msg.temp = filelen / server_msg.threadCount ;
+            {
+                myerror("create file failed ",__LINE__ );
+            }
+            int file_sum_len = lseek(file_fd,0L,SEEK_END);    
+            cout << "file_sum_len == " << file_sum_len << endl ;
+            server_msg.temp = file_sum_len / server_msg.threadCount ;
             close(file_fd);
-            strcpy(server_msg.str,"开 始 下 载 ------------\n"); 
+            strcpy(server_msg.str," 下 载 中，请 稍 侯 ------------->> \n"); 
             server_msg.flag = 666 ;
             send(conn_fd,&server_msg,sizeof(TT),0);
             closedir(dir);
@@ -208,7 +211,8 @@ int sure(TT server_msg,int conn_fd){
     }
     // 出循环代表不存在
     closedir(dir);
-    strcpy(server_msg.str,"该文件在服务器上不存在，请核实后重新下载\n"); 
+    strcpy(server_msg.str," 该文件在服务器上不存在，请核实后重新下载\n"); 
     server_msg.flag = 999 ;
     send(conn_fd,&server_msg,sizeof(TT),0);
+    return 0 ;
 }

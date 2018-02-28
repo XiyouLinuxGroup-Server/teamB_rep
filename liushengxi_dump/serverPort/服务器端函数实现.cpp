@@ -8,16 +8,16 @@ int Myserver::setnonblocking( int fd )
     fcntl( fd, F_SETFL, new_option );
     return old_option;
 }
-void Myserver::addfd( int epollfd, int fd, bool oneshot  )
+void Myserver::addfd( int epollfd, int fd, bool oneshot =false )
 {
-    epoll_event ev;
-    ev.data.fd = fd;
-    ev.events = EPOLLIN | EPOLLET ;
+    epoll_event event;
+    event.data.fd = fd;
+    event.events = EPOLLIN | EPOLLET;
     if( oneshot )
     {
-        ev.events |= EPOLLONESHOT;
+        event.events |= EPOLLONESHOT;
     }
-    epoll_ctl( epollfd, EPOLL_CTL_ADD, fd, &ev );
+    epoll_ctl( epollfd, EPOLL_CTL_ADD, fd, &event );
     setnonblocking( fd );
 }
 void reset_oneshot( int epollfd, int fd )
@@ -28,31 +28,35 @@ void reset_oneshot( int epollfd, int fd )
     epoll_ctl( epollfd, EPOLL_CTL_MOD, fd, &event );
 }
 Myserver::Myserver(){
+    int ret = 0 ;
+    struct sockaddr_in address;
     bzero( &address, sizeof( address ) );
     address.sin_family = AF_INET ;
+    inet_pton( AF_INET, server_ip, &address.sin_addr );
     address.sin_port = htons(SERVER_PORT);
-    address.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    listenfd = socket( AF_INET, SOCK_STREAM, 0 );
+
+    int listenfd = socket( PF_INET, SOCK_STREAM, 0 );
     assert( listenfd >= 0 );
+
     int optval  =  1  ; //设置该套接字使之可以重新绑定端口
     if(setsockopt(listenfd,SOL_SOCKET,SO_REUSEADDR,(int *)&optval,sizeof(int))    < 0)
         printf("setsocketopt failed \n ");
 
-    int ret = bind( listenfd, ( struct sockaddr* )&address, sizeof( address ) );
+    ret = bind( listenfd, ( struct sockaddr* )&address, sizeof( address ) );
     assert( ret != -1 );
 
     ret = listen( listenfd, LISTENQ );
     assert( ret != -1 );
-    //epollfd epoll 句柄 
-    int epollfd = epoll_create(  256 );
-    assert( epollfd != -1 );
 
-    addfd( epollfd, listenfd, false ); ///false 表示不对 epoll 启用 ET 模式 
+    epoll_event events[ MAX_EVENT_NUMBER ];
+    int epollfd = epoll_create( 256 );
+    assert( epollfd != -1 );
+    addfd( epollfd, listenfd, false );//false 表示不对 epoll 启用 ET 模式 
 
     while( 1 )
     {
-        ret = epoll_wait( epollfd, events, MAX_EVENTS_NUMBER, -1 );
+        int ret = epoll_wait( epollfd, events, MAX_EVENT_NUMBER, -1 );
         if ( ret < 0 )
         {
             printf( "epoll failure\n" );
@@ -71,13 +75,11 @@ Myserver::Myserver(){
             }
             else if ( events[i].events & EPOLLIN )
             {
-                pthread_t thread ;
+                pthread_t thread;
                 fds fds_for_new_worker;
                 fds_for_new_worker.epollfd = epollfd;
-                fds_for_new_worker.sockfd = sockfd ;
-                if(pthread_create( &thread, NULL,fun ,(void *)&fds_for_new_worker ) < 0 )
-                    printf("pthread_create is failed !! \n");
-                pthread_detach(thread); //回收资源 
+                fds_for_new_worker.sockfd = sockfd;
+                pthread_create( &thread, NULL, worker, ( void* )&fds_for_new_worker );
             }
             else
             {
@@ -85,59 +87,24 @@ Myserver::Myserver(){
             }
         }
     }
-}
-Myserver::~Myserver(){  //析构函数  
-    close(listenfd) ;
+    close( listenfd );
 }
 
-file::file(TT  &server_msg ,const int &fd){
-    file_fd = fd ; 
-    char file_name[MAXSIZE]; 
-    strcpy(file_name,server_msg.filename); //filename = test.data  
-    sprintf(file_name,"./file/%s",server_msg.filename);
-    infile.open(file_name, ios::in);  //只读 
-    if(!infile.is_open ())
-        cout << "Open file failure" << endl;
-    infile.seekg(0, ios::end);
-    sum_len = infile.tellg(); 
-    count = server_msg.temp ; //第几个线程 0 1 2 3 
-    section_number = sum_len /server_msg.threadCount ; //注意会有余数的问题
-    infile.seekg(0, ios::beg);
-    infile.seekg(section_number*count,ios::beg);
-}
-file::~file(){
-    infile.close();
-}
-int file::real_send_file(TT &server_msg) {  //正式发送文件
-    int  local = 0 ,temp_len = 0  ;
-    char read_buf[MAXSIZE];
-    while(local != section_number ) //服务器不需要知道文件有多大，发完就完了啊 
-    {
-        memset(read_buf,0,sizeof(read_buf));
-        infile.read(read_buf,128);
-        temp_len = infile.gcount() ;
-        memcpy(server_msg.str,read_buf,temp_len);    //把文件内容拷贝到server_msg.str
-        local  = local + temp_len ;
-        server_msg.BiteCount = temp_len ;
-        send(file_fd,&server_msg,sizeof(TT),0) ;
-        // //printf("**********************\n");
-        // usleep(15000);
-        // //usleep(10000); //error
-    }
-}
-
-void  *fun(void  *arg) 
+void* worker( void* arg ) //线程函数
 {
     TT server_msg ;
-    const int conn_fd = ( (fds*)arg )->sockfd;
-    int epollfd = ( (fds*)arg )->epollfd;
     memset(&server_msg,0,sizeof(TT)) ;
+
+    const int sockfd = ( (fds*)arg )->sockfd;
+    int epollfd = ( (fds*)arg )->epollfd;
+
+    //printf( "start new thread to receive data on fd: %d\n", sockfd );
     while( 1 )
     {
-        int ret = recv(conn_fd,&server_msg,sizeof(TT),0) ;
+        int ret = recv(sockfd,&server_msg,sizeof(TT),0) ; 
         if( ret == 0 )
         {
-            close( conn_fd );
+            close( sockfd );
             printf( "foreiner closed the connection\n" );
             break;
         }
@@ -145,40 +112,73 @@ void  *fun(void  *arg)
         {
             if( errno == EAGAIN )
             {
-                reset_oneshot( epollfd ,conn_fd );
+                reset_oneshot( epollfd, sockfd );
+                printf( "read later\n" );
                 break;
             }
         }
         else
         {
-            printf("****************************flag  ==  %d\n",server_msg.flag);
+            printf("***********************************flag  ==  %d\n",server_msg.flag);
+            printf("temp  ==  %d\n",server_msg.temp );
             switch(server_msg.flag)
             {
-                case 0: sure(server_msg,conn_fd);   break ;      
-                case 1: send_file(server_msg,conn_fd);    break ;  
-                case 110: cout << "666" << endl ;break ;
+                case 0: sure(server_msg,sockfd);   break ;      
+                case 1: send_file(server_msg,sockfd);    break ;  
+                //110 为测试代码
+                case 110:   server_msg.flag = 1101 ; 
+                            send(sockfd,&server_msg,sizeof(TT),0);
+                            break ;
                 default: break ;
             }
+
         }
     }
+    // printf( "end thread receiving data on fd: %d\n", sockfd );
 }
-int  send_file(TT server_msg  ,const int &conn_fd ){ //向客户端发文件 ，大小从 start 开始读取多少字节即可
-    printf("server_msg.filename == %s \n",server_msg.filename);
-    printf("server_msg.temp == %d \n",server_msg.temp);
-    printf("server_msg.BityCount == %d \n",server_msg.BiteCount);
-    printf("server_msg.flag == %d \n",server_msg.flag);
-    printf("server_msg.threadCount == %d \n",server_msg.threadCount);
-    printf("server_msg.str == %s \n",server_msg.str);
-    file myfile(server_msg,conn_fd);
-    myfile.real_send_file(server_msg);
 
+int  send_file(TT server_msg  ,const int &conn_fd ){ //flag==1 
+    print(server_msg);
+    char name[512];
+    sprintf(name,"./file/%s",server_msg.filename);
+    int file_fd = open(name,O_RDONLY) ;
+    if(file_fd < 0 )
+        cout << "create file failure  "<< endl ;
 
-    server_msg.flag = 2 ; //表示一个线程传输完成
-    send(conn_fd,&server_msg,sizeof(TT),0);
+    if(lseek(file_fd,server_msg.size*server_msg.temp,SEEK_SET) < 0)
+        cout << "lseek is failed  " << endl ;
+
+    int sum = 0 ,file_len = 0 ;
+    char read_buf[MAXSIZESTR]; //1024 
+
+    while( sum <  server_msg.size )  
+    {
+        memset(read_buf,0,sizeof(read_buf));
+        memset(server_msg.str,0,sizeof(server_msg.str));
+
+        file_len = read(file_fd,read_buf,1) ;
+
+        memcpy(server_msg.str,read_buf,file_len);    //把文件内容拷贝到client.msg.str
+        // cout << "   server_msg.str == "<< server_msg.str  << endl ;
+        sum = sum + file_len ;
+        server_msg.BiteCount = file_len ;
+        server_msg.flag = 1 ;
+
+        send(conn_fd,&server_msg,sizeof(TT),0) ;
+    }
+    // if(server_msg.temp == server_msg.threadCount-1) {  //最后一个线程
+    //     file_len = read(file_fd,read_buf,server_msg.size) ;
+    //     if(file_len != 0 ){  //说明还有剩余
+    //         server_msg.BiteCount = file_len ;
+    //         server_msg.flag = 1 ;
+
+    //         send(conn_fd,&server_msg,sizeof(TT),0) ;
+    //     }
+    // }
+    close(file_fd);
 }
 int sure(TT server_msg,int conn_fd){
-    //1.判断文件是否存在？
-    //2.调用send_file 函数进行传输
+    //1.判断文件是否存在 ？
     char path[MAXSIZE] ="./file" ;
     DIR *dir ;
     struct dirent *ptr;
@@ -186,12 +186,23 @@ int sure(TT server_msg,int conn_fd){
     {
         perror("opendir");
     }
+    char name[512];
     while( ( ptr = readdir(dir) )  != NULL ){
-        if(strcmp(ptr->d_name,server_msg.filename) == 0 ) {  //说明存在该文件,等待线程申请下载 
-                strcpy(server_msg.str,"开 始 下 载 ------------\n"); 
-                server_msg.flag = 666 ;
-                send(conn_fd,&server_msg,sizeof(TT),0);
-                return 0;
+        if(strcmp(ptr->d_name,server_msg.filename) == 0 ) {  
+            //说明存在该文件,等待线程申请下载,发过来的还有线程数目，计算有多少个字节，客户端创建多少个文件
+            sprintf(name,"./file/%s",server_msg.filename);
+            int file_fd = open(name,O_RDONLY) ;
+            if(file_fd < 0 )
+                cout << "create file failure  "<< endl ;
+            int filelen = lseek(file_fd,0L,SEEK_END);    
+            cout << "filelen == " << filelen << endl ;
+            server_msg.temp = filelen / server_msg.threadCount ;
+            close(file_fd);
+            strcpy(server_msg.str,"开 始 下 载 ------------\n"); 
+            server_msg.flag = 666 ;
+            send(conn_fd,&server_msg,sizeof(TT),0);
+            closedir(dir);
+            return 0;
         }
     }
     // 出循环代表不存在

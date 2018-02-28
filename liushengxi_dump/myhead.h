@@ -39,10 +39,10 @@
 #include<sys/time.h>
 
 
-#define SERVER_IP  "127.0.0.1" 
+static const char* server_ip= "127.0.0.1" ;
 #define SERVER_PORT  5201  
 
-#define    MAX_EVENTS_NUMBER   1024 
+#define    MAX_EVENT_NUMBER   1024 
 #define    LISTENQ      1024 
 #define    MAXSIZE  52
 #define  MAXSIZESTR  1024
@@ -52,24 +52,12 @@ struct TT{ //消息信息
 	//flag == 1 正式开始传输
 	int temp ; // 1 2 3 4 
 	unsigned threadCount ; //线程数目 4
+    unsigned size ; //每一段的大小字节数 
 	unsigned BiteCount ; //每次发多大的包 
 	char filename[MAXSIZE] ; //要请求的文件名 
 	char str[MAXSIZESTR] ; //读取文件数据
 };
 
-class  file{
-public:
-	file(TT &,const int &);
-	~file();
-	int getSum() ;
-	int real_send_file(TT &);
-private:
-	std::ifstream infile ;
-	int file_fd ;
-	int section_number ; // 每一段的字节大小
-	int sum_len ; //文件的总大小
-	int count ; //把文件指针移动到哪里
-};
 struct fds
 {
    int epollfd;
@@ -77,18 +65,13 @@ struct fds
 };
 class Myserver{  
 public:
-    struct sockaddr_in address ;
-	struct epoll_event events[MAX_EVENTS_NUMBER] ;
-    int listenfd ;
-public:
 	Myserver() ;  // 构造函数，初始化服务器
-	~Myserver(); //析构函数，关闭 listenfd 
 private:
-	int setnonblocking( int fd ) ;
+	int setnonblocking( int fd );
 	void addfd( int epollfd, int fd, bool oneshot ) ;
 };
-void  *fun(void  *arg) ; //线程函数
-void reset_oneshot( int epollfd, int fd ) ;
+void  *worker(void  *arg) ; //线程函数
+void reset_oneshot( int epollfd, int fd ) ; //worker 里面所使用的函数
 int sure(TT server_msg,int conn_fd);
 int send_file(TT server_msg ,const int &conn_fd); 
 
@@ -100,14 +83,16 @@ int send_file(TT server_msg ,const int &conn_fd);
 class Myclient {   
 	public:
 	int conn_fd ;
+    int threadCount ; //保存一下线程数目
     struct sockaddr_in  server_address ;
 	Myclient(const char *ip ,const int port );  // 构造函数
 	~Myclient(); //析构函数
 	int downloadFile();
 };
 void *my_recv(void* args) ;
-void *realdownloadFile(void *arg) ;
-static int CONNFD ;
+void *realdownloadFile(void *arg) ;//线程函数
+static int CONNFD ; //客户端套接字
+static int section_size ;
 int keep_file(TT client_msg) ;
 
 
@@ -163,5 +148,20 @@ private:
     pthread_cond_t m_cond;
 };
 static cond condTag ;
+static void print(TT msg){ //测试函数
+    printf("filename == %s \n",msg.filename);
+    printf("temp == %d \n",msg.temp);
+    printf("BityCount == %d \n",msg.BiteCount);
+    printf("flag == %d \n",msg.flag);
+    printf("threadCount == %d \n",msg.threadCount);
+    printf("str == %s \n",msg.str);
+    printf("size == %d \n",msg.size);
+}
+void myerror(const char *str ,int line)  //错误处理函数
+{
+    perror(str);
+    printf("at %d \n",line);
+    exit(1);
+}
 
 #endif

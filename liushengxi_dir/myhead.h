@@ -72,7 +72,7 @@ private:
 };
 void  *worker(void  *arg) ; //线程函数
 void reset_oneshot( int epollfd, int fd ) ; //worker 里面所使用的函数
-int sure(TT server_msg,int conn_fd);
+int sure(TT server_msg,const int conn_fd);
 int send_file(TT server_msg ,const int &conn_fd); 
 
 
@@ -82,12 +82,12 @@ int send_file(TT server_msg ,const int &conn_fd);
 
 class Myclient {   
 	public:
-	int conn_fd ;
-    int threadCount ;
+	int conn_fd ; //构造函数链接套接字，析构函数关闭套接字
     struct sockaddr_in  server_address ;
-	Myclient(const char *ip ,const int port );  // 构造函数
+	explicit Myclient(const char *ip ,const int port );  // 构造函数
 	~Myclient(); //析构函数
 	int downloadFile();
+    int Mergefiles() ; //合并文件
 };
 void *my_recv(void* args) ;
 void *realdownloadFile(void *arg) ;//线程函数
@@ -148,7 +148,8 @@ private:
     pthread_cond_t m_cond;
 };
 static cond condTag ;
-static void print(TT msg){
+static int filefds[500] ;
+static void print(TT msg){ //测试函数
     printf("filename == %s \n",msg.filename);
     printf("temp == %d \n",msg.temp);
     printf("BityCount == %d \n",msg.BiteCount);
@@ -156,6 +157,12 @@ static void print(TT msg){
     printf("threadCount == %d \n",msg.threadCount);
     printf("str == %s \n",msg.str);
     printf("size == %d \n",msg.size);
+}
+static void myerror(const char *str ,int line)  //错误处理函数
+{
+    perror(str);
+    printf("at %d \n",line);
+    exit(1);
 }
 
 #endif
