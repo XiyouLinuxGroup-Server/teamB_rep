@@ -37,6 +37,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include<sys/time.h>
+#include<error.h>
 
 
 static const char* server_ip= "127.0.0.1" ;
@@ -86,8 +87,8 @@ class Myclient {
     struct sockaddr_in  server_address ;
 	explicit Myclient(const char *ip ,const int port );  // 构造函数
 	~Myclient(); //析构函数
-	int downloadFile();
-    int Mergefiles() ; //合并文件
+	TT downloadFile();
+    int Mergefiles(TT ) ; //合并文件
 };
 void *my_recv(void* args) ;
 void *realdownloadFile(void *arg) ;//线程函数
@@ -149,6 +150,7 @@ private:
 };
 static cond condTag ;
 static int filefds[500] ;
+
 static void print(TT msg){ //测试函数
     printf("filename == %s \n",msg.filename);
     printf("temp == %d \n",msg.temp);

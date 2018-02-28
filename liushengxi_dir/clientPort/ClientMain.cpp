@@ -20,8 +20,9 @@ int main(int argc ,char **argv){
     pthread_t thid;
     pthread_create(&thid,NULL, my_recv,(void *)&my.conn_fd) ;  //my_recv 只需要套接字 
 
-    my.downloadFile(); //打印正在下载
-    sleep(3);
+    TT arg = my.downloadFile(); //打印正在下载
+    sleep(5) ;
+    my.Mergefiles(arg);
 	return 0 ;
 }
 

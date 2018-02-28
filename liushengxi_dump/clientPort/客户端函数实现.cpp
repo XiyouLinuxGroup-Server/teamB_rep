@@ -29,10 +29,7 @@ Myclient::~Myclient(){
         sprintf(str,"cat %d.txt >> 1.txt ",i);
         system(str);
     }
-    memset(str,0,sizeof(str));
-    strcpy(str,"downloadfile.txt");
-    if(rename("1.txt",str) < 0)
-        cout << "   rename failed   " <<  endl ;
+    system("mv ./1.txt ./download") ;
     system("rm ./*.txt");
 	close(conn_fd);
 }

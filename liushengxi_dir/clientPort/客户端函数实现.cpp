@@ -25,7 +25,7 @@ Myclient::Myclient(const char *ip ,const int port ){
 Myclient::~Myclient(){
 	close(conn_fd);
 }
-int Myclient::downloadFile(){ 
+TT Myclient::downloadFile(){ 
     TT client_msg ;
     memset(&client_msg,0,sizeof(TT));
     cout << "请 输  入 你 想 要 下 载 的 文 件 名   "  ;
@@ -38,12 +38,10 @@ int Myclient::downloadFile(){
     condTag.set();
     client_msg.flag = 0 ;
     send(conn_fd,&client_msg,sizeof(TT),0); //进行确认
-    // sleep(10);
-    // exit(1);
 
     if(condTag.timewait() == false  ){  //超时
         condTag.free_cond();
-        return 0;
+        exit(-1);
     }
     condTag.free_cond();
 
@@ -87,17 +85,36 @@ int Myclient::downloadFile(){
             }  
             exit(-1);  
         }  
-    } 
+    }
+    return client_msg ; 
 }
 void *realdownloadFile(void *arg){   //线程下载文件
-    printf("------------------------------------------------\n");
     TT client_msg = *(TT *)arg ; 
     client_msg.flag = 1  ; 
     client_msg.size = section_size ;
-    printf("send return is %d \n",send(CONNFD,&client_msg,sizeof(TT),0));
+
+    send(CONNFD,&client_msg,sizeof(TT),0);
+
     delete static_cast<TT *>(arg) ;
     pthread_exit(NULL);
 }
+
+int Myclient::Mergefiles(TT client_msg){  //合并文件
+    char str[512];
+    for(int j = 1 ;j<= client_msg.threadCount ;j++){
+        close(filefds[j]);     //关闭文件描述符
+    }
+    system("touch download");
+    for(int i = 1 ;i<= client_msg.threadCount ;i++ ){
+        memset(str,0,sizeof(str));
+        sprintf(str,"cat %d.txt >>  download ",i);
+        system(str);
+    }
+    system("rm *.txt") ;
+    printf("<< -------------下 载 成 功 ，文件名为 download \n\n\n");
+    return 0;
+}
+
 
 void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd 
 {
@@ -153,9 +170,9 @@ void *my_recv(void* args)  //静态成员具有类的数据成员 conn_fd
 }
 int keep_file(TT client_msg)   //以temp归类
 {
-    print(client_msg);
+    // print(client_msg);
     
-    if(write(filefds[client_msg.temp+1],client_msg.str,client_msg.BiteCount) < 0) 
+    if( write(filefds[client_msg.temp+1],client_msg.str,client_msg.BiteCount) < 0) 
         myerror("write file failed ",__LINE__ );
     return 0;
 }

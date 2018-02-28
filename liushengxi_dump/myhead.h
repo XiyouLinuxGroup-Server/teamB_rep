@@ -157,7 +157,7 @@ static void print(TT msg){ //测试函数
     printf("str == %s \n",msg.str);
     printf("size == %d \n",msg.size);
 }
-void myerror(const char *str ,int line)  //错误处理函数
+static void myerror(const char *str ,int line)  //错误处理函数
 {
     perror(str);
     printf("at %d \n",line);

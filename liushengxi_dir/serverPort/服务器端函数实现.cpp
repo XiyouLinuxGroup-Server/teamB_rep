@@ -119,7 +119,7 @@ void* worker( void* arg ) //线程函数
         }
         else
         {
-            printf("***********************************flag  ==  %d\n",server_msg.flag);
+            printf("********************************************flag  ==  %d\n",server_msg.flag);
             switch(server_msg.flag)
             {
                 case 0: sure(server_msg,sockfd);   break ;      
@@ -136,8 +136,13 @@ void* worker( void* arg ) //线程函数
     // printf( "end thread receiving data on fd: %d\n", sockfd );
 }
 
-int  send_file(TT server_msg  ,const int &conn_fd ){ //flag==1 
-    print(server_msg);
+
+
+
+int  send_file(TT server_msg  ,const int &conn_fd ){   //flag==1 
+
+    //print(server_msg);
+
     char name[512];
     memset(name,0,sizeof(name));
     sprintf(name,"./file/%s",server_msg.filename);
@@ -151,13 +156,20 @@ int  send_file(TT server_msg  ,const int &conn_fd ){ //flag==1
 
     int sum = 0 ,file_len = 0 ;
     char read_buf[MAXSIZESTR]; //1024 
-
+    int realbuf_size ;
+     //server_msg.size   每一段的大小字节数,找到它的最大约数
+    for(int i = MAXSIZESTR - 1 ;i >= 1 ;i-- ) {
+         if((server_msg.size % i ) == 0 ){
+             realbuf_size = i ;
+             break ;
+         }
+    }
     while( sum <  server_msg.size )  
     {
         memset(read_buf,0,sizeof(read_buf));
         memset(server_msg.str,0,sizeof(server_msg.str));
 
-        file_len = read(file_fd,read_buf,1) ;
+        file_len = read(file_fd,read_buf,realbuf_size) ;
 
         memcpy(server_msg.str,read_buf,file_len);    //把文件内容拷贝到client.msg.str
         // cout << "   server_msg.str == "<< server_msg.str  << endl ;
@@ -167,17 +179,33 @@ int  send_file(TT server_msg  ,const int &conn_fd ){ //flag==1
 
         send(conn_fd,&server_msg,sizeof(TT),0) ;
     }
-    // if(server_msg.temp == server_msg.threadCount-1) {  //最后一个线程
-    //     file_len = read(file_fd,read_buf,server_msg.size) ;
-    //     if(file_len != 0 ){  //说明还有剩余
-    //         server_msg.BiteCount = file_len ;
-    //         server_msg.flag = 1 ;
 
-    //         send(conn_fd,&server_msg,sizeof(TT),0) ;
-    //     }
-    // }
+    if( server_msg.temp  ==  server_msg.threadCount-1 ) {  //最后一个线程
+        int ll = read(file_fd,read_buf,server_msg.size) ; 
+        //剩余的字节数大于每一段的大小就会有 bug ,暂时先胡略
+        if( ll != 0 ){  //说明还有剩余
+
+            memset(server_msg.str,0,sizeof(server_msg.str));
+
+
+            memcpy(server_msg.str,read_buf,ll);    //把文件内容拷贝到client.msg.str
+
+            
+            server_msg.BiteCount = ll ;
+            server_msg.flag = 1 ;
+
+            send(conn_fd,&server_msg,sizeof(TT),0) ;
+        }
+    }
     close(file_fd);
 }
+
+
+
+
+
+
+
 int sure(TT server_msg,int conn_fd){
     //1.判断文件是否存在 ？
     char path[MAXSIZE] ="./file" ;
